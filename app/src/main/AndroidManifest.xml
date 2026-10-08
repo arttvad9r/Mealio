@@ -3,6 +3,9 @@
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Cook Mode buzzes when a timer finishes; vibration is a normal permission
+         (no runtime prompt). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".MealioApp"

@@ -1,7 +1,11 @@
 package com.arttvad9r.mealio.ui.screens.cook
 
+import android.os.SystemClock
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.arttvad9r.mealio.domain.cook.ActiveTimer
+import com.arttvad9r.mealio.domain.cook.ActiveTimers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -10,71 +14,98 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-/** State of the single Cook Mode countdown timer. */
-data class CookTimerUiState(
-    val totalSeconds: Long = 0,
-    val remainingSeconds: Long = 0,
-    val isRunning: Boolean = false,
-) {
-    val isActive: Boolean get() = totalSeconds > 0
-    val isFinished: Boolean get() = isActive && remainingSeconds <= 0
-}
-
 /**
- * One countdown timer for Cook Mode. Lives in a ViewModel so it survives
- * recomposition and configuration changes: a rotation while cooking keeps the
- * timer running and its remaining time. The tick runs only while the timer is
- * live and the ViewModel is alive, so nothing keeps ticking off-screen forever.
+ * Holds the Cook Mode timers. Each timer stores an absolute deadline on the
+ * monotonic clock and the UI re-derives the remaining time from it on every tick,
+ * so nothing drifts when Compose recomposes, the app pauses, or the user walks
+ * between steps. Any number of timers run independently.
+ *
+ * The deadlines are mirrored into [SavedStateHandle], so a brief backgrounding —
+ * even process death and restore — keeps them; a device reboot is out of scope.
  */
-class CookTimerViewModel : ViewModel() {
+class CookTimerViewModel(
+    private val savedState: SavedStateHandle,
+    private val clock: () -> Long = { SystemClock.elapsedRealtime() },
+) : ViewModel() {
 
-    private val _state = MutableStateFlow(CookTimerUiState())
-    val state: StateFlow<CookTimerUiState> = _state.asStateFlow()
+    private val _timers = MutableStateFlow(restore())
+    val timers: StateFlow<ActiveTimers> = _timers.asStateFlow()
+
+    /** The clock reading the countdown is rendered against. */
+    private val _now = MutableStateFlow(clock())
+    val now: StateFlow<Long> = _now.asStateFlow()
 
     private var tickJob: Job? = null
 
-    /** Starts (or restarts) a timer of [seconds]. A non-positive value just clears it. */
-    fun start(seconds: Long) {
-        tickJob?.cancel()
-        tickJob = null
-        if (seconds <= 0) {
-            _state.value = CookTimerUiState()
+    /** Starts a new timer for [seconds], tied to [stepNumber] for its label. */
+    fun start(seconds: Long, stepNumber: Int) {
+        if (seconds <= 0) return
+        _timers.update { it.start(seconds, stepNumber, clock()) }
+        resumeTicking()
+    }
+
+    fun remove(id: Long) {
+        _timers.update { it.remove(id) }
+    }
+
+    /** Runs the same length again, as a fresh timer, after it finished. */
+    fun restart(id: Long) {
+        val timer = _timers.value.items.firstOrNull { it.id == id } ?: return
+        start(timer.totalSeconds, timer.stepNumber)
+    }
+
+    /** Re-reads the clock, e.g. after returning to the foreground. */
+    fun refresh() {
+        _now.value = clock()
+        resumeTicking()
+    }
+
+    private fun resumeTicking() {
+        val now = clock()
+        _now.value = now
+        if (tickJob?.isActive == true || !_timers.value.hasRunning(now)) {
+            persist()
             return
         }
-        _state.value = CookTimerUiState(
-            totalSeconds = seconds,
-            remainingSeconds = seconds,
-            isRunning = true,
-        )
+        persist()
         tickJob = viewModelScope.launch {
             while (true) {
-                delay(1_000)
-                val remaining = _state.value.remainingSeconds - 1
-                if (remaining <= 0) {
-                    _state.update { it.copy(remainingSeconds = 0, isRunning = false) }
-                    break
-                }
-                _state.update { it.copy(remainingSeconds = remaining) }
+                delay(TICK_MS)
+                val tick = clock()
+                _now.value = tick
+                if (!_timers.value.hasRunning(tick)) break
             }
+            _now.value = clock()
+            persist()
+            tickJob = null
         }
-    }
-
-    /** Stop the running timer but keep the value, so it can be resumed. */
-    fun stop() {
-        tickJob?.cancel()
-        tickJob = null
-        _state.update { it.copy(isRunning = false) }
-    }
-
-    /** Clears the timer entirely (used when leaving Cook Mode or changing step). */
-    fun reset() {
-        tickJob?.cancel()
-        tickJob = null
-        _state.value = CookTimerUiState()
     }
 
     override fun onCleared() {
         tickJob?.cancel()
         tickJob = null
+    }
+
+    // Deadlines are monotonic clock readings, so they survive a process restart
+    // (no reboot) and can be stored as plain longs.
+    private fun persist() {
+        savedState[KEY] = _timers.value.items
+            .flatMap { listOf(it.id, it.totalSeconds, it.deadlineMillis, it.stepNumber.toLong()) }
+            .toLongArray()
+    }
+
+    private fun restore(): ActiveTimers {
+        val flat = savedState.get<LongArray>(KEY) ?: return ActiveTimers()
+        if (flat.size % 4 != 0) return ActiveTimers()
+        val timers = flat.toList().chunked(4).mapNotNull { chunk ->
+            val (id, total, deadline, step) = chunk
+            if (total <= 0) null else ActiveTimer(id, total, deadline, step.toInt())
+        }
+        return ActiveTimers(timers)
+    }
+
+    private companion object {
+        const val KEY = "cook-timers"
+        const val TICK_MS = 250L
     }
 }

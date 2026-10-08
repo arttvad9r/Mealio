@@ -3,7 +3,7 @@ package com.arttvad9r.mealio.ui.screens.cook
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class CookCountdownFormatTest {
+class CountdownTest {
 
     @Test
     fun `under an hour shows minutes and seconds`() {
