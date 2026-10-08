@@ -31,26 +31,13 @@ truth; the app is just a fast native UI for it.
 
 ## Screenshots
 
-<!-- Real V1.2 screenshots are not published yet. Add them under
-     docs/screenshots/ and uncomment the table below; the layout is already
-     prepared (3–4 phones per row, clickable, GitHub-safe). -->
-
-```
-docs/screenshots/
-├── today.png          Today with a filled day
-├── recipes.png        Recipes list
-├── recipe-detail.png  Recipe detail
-└── shopping.png       Shopping list
-```
-
-<!--
 <div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/today.png" width="220" alt="Today"></td>
-    <td align="center"><img src="docs/screenshots/recipes.png" width="220" alt="Recipes"></td>
-    <td align="center"><img src="docs/screenshots/recipe-detail.png" width="220" alt="Recipe detail"></td>
-    <td align="center"><img src="docs/screenshots/shopping.png" width="220" alt="Shopping list"></td>
+    <td align="center"><img src="docs/screenshots/today.jpg" width="220" alt="Today"></td>
+    <td align="center"><img src="docs/screenshots/recipes.jpg" width="220" alt="Recipes"></td>
+    <td align="center"><img src="docs/screenshots/recipe-detail.jpg" width="220" alt="Recipe detail"></td>
+    <td align="center"><img src="docs/screenshots/shopping.jpg" width="220" alt="Shopping list"></td>
   </tr>
   <tr>
     <td align="center"><sub>Today</sub></td>
@@ -60,7 +47,8 @@ docs/screenshots/
   </tr>
 </table>
 </div>
--->
+
+<sub>The app UI is currently Russian-only — see [Project status](#project-status).</sub>
 
 ## Features
 
