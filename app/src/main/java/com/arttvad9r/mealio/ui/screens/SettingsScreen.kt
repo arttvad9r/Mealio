@@ -4,7 +4,6 @@ import android.content.Intent
 import androidx.core.net.toUri
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
@@ -15,13 +14,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
@@ -64,16 +61,13 @@ fun SettingsScreen(
     themeMode: ThemeMode,
     appVersion: String,
     language: AppLanguage,
-    calorieTarget: Int,
     onThemeModeChange: (ThemeMode) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
-    onCalorieTargetChange: (Int) -> Unit,
     onDisconnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var showConfirm by remember { mutableStateOf(false) }
-    var showTargetDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -152,45 +146,6 @@ fun SettingsScreen(
             }
         }
 
-        // A single compact setting row (label + current value + chevron) that
-        // opens a small dialog. No section header or second caption — for one
-        // setting the doubled labelling is just visual noise.
-        MealioCard(modifier = Modifier.fillMaxWidth()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showTargetDialog = true }
-                    .heightIn(min = 64.dp)
-                    .padding(horizontal = Space.l, vertical = Space.s),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_target_section),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(Space.xs),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(
-                            R.string.settings_target_value,
-                            QuantityFormatter.formatNumber(calorieTarget.toDouble(), LocalContext.current),
-                        ),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.ChevronRight,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-
         MealioCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(Space.l),
@@ -251,17 +206,6 @@ fun SettingsScreen(
         Spacer(Modifier.height(Space.m))
     }
 
-    if (showTargetDialog) {
-        CalorieTargetDialog(
-            current = calorieTarget,
-            onDismiss = { showTargetDialog = false },
-            onSave = { value ->
-                onCalorieTargetChange(value)
-                showTargetDialog = false
-            },
-        )
-    }
-
     if (showConfirm) {
         AlertDialog(
             onDismissRequest = { showConfirm = false },
@@ -295,6 +239,9 @@ fun SettingsScreen(
     }
 }
 
+// Dormant: the daily calorie target is no longer shown in Settings, but the
+// editing UI (and the settings/domain code behind it) is kept for a possible
+// return. Nothing calls this composable right now.
 @Composable
 private fun CalorieTargetDialog(
     current: Int,

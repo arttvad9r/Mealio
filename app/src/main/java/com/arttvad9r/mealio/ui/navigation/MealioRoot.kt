@@ -8,7 +8,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -51,18 +50,23 @@ import com.arttvad9r.mealio.ui.screens.shopping.ShoppingListDetailScreen
 import com.arttvad9r.mealio.ui.screens.shopping.ShoppingListDetailViewModel
 import com.arttvad9r.mealio.ui.screens.shopping.ShoppingListsScreen
 import com.arttvad9r.mealio.ui.screens.shopping.ShoppingViewModel
-import com.arttvad9r.mealio.ui.screens.today.TodayScreen
-import com.arttvad9r.mealio.ui.screens.today.TodayViewModel
 import com.arttvad9r.mealio.data.remote.MealioException
 import com.arttvad9r.mealio.data.remote.ErrorKind
 import kotlinx.coroutines.launch
 
-private enum class Tab(val labelRes: Int, val icon: ImageVector) {
-    TODAY(R.string.nav_today, Icons.Filled.Today),
+internal enum class Tab(val labelRes: Int, val icon: ImageVector) {
     RECIPES(R.string.nav_recipes, Icons.Filled.Restaurant),
     SHOPPING(R.string.nav_shopping, Icons.Filled.ShoppingCart),
     SETTINGS(R.string.nav_settings, Icons.Filled.Settings),
 }
+
+/**
+ * Resolves a persisted tab name (or null) to a tab that exists in this build.
+ * An unknown/removed tab — e.g. the old "Today" — falls back to Recipes
+ * instead of crashing or showing a blank screen.
+ */
+internal fun resolveTab(name: String?): Tab =
+    Tab.entries.firstOrNull { it.name == name } ?: Tab.RECIPES
 
 @Composable
 fun MealioRoot(container: AppContainer) {
@@ -110,11 +114,13 @@ private fun ConnectRoute(container: AppContainer) {
 @Composable
 private fun AuthedRoot(container: AppContainer) {
     val context = LocalContext.current
-    var tab by rememberSaveable { mutableStateOf(Tab.TODAY.name) }
+    var tab by rememberSaveable { mutableStateOf(Tab.RECIPES.name) }
     var selectedRecipeSlug by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedListId by rememberSaveable { mutableStateOf<String?>(null) }
 
-    val currentTab = Tab.valueOf(tab)
+    // Tolerate a state saved by an older build that pointed at a tab which no
+    // longer exists (e.g. Today): fall back to Recipes instead of crashing.
+    val currentTab = resolveTab(tab)
     val account = container.settingsStore.readAccount()
     val serverUrl = account?.serverUrl.orEmpty()
 
@@ -125,24 +131,6 @@ private fun AuthedRoot(container: AppContainer) {
         },
     )
     val recipesState by recipesViewModel.state.collectAsStateWithLifecycle()
-
-    val todayViewModel: TodayViewModel = viewModel(
-        key = "today",
-        factory = viewModelFactory {
-            initializer {
-                TodayViewModel(
-                    repository = container.recipeRepository,
-                    store = container.todayStore,
-                    calorieTarget = container.settingsStore.dailyCalorieTarget.value,
-                )
-            }
-        },
-    )
-    val todayState by todayViewModel.state.collectAsStateWithLifecycle()
-
-    // Keep the "Today" target in sync when it is changed in Settings.
-    val calorieTarget by container.settingsStore.dailyCalorieTarget.collectAsStateWithLifecycle()
-    LaunchedEffect(calorieTarget) { todayViewModel.updateTarget(calorieTarget) }
 
     val shoppingViewModel: ShoppingViewModel = viewModel(
         key = "shopping",
@@ -226,18 +214,6 @@ private fun AuthedRoot(container: AppContainer) {
             )
 
             else -> when (currentTab) {
-                Tab.TODAY -> TodayScreen(
-                    state = todayState,
-                    candidatesFor = todayViewModel::candidates,
-                    onPick = todayViewModel::pick,
-                    onRemove = todayViewModel::remove,
-                    onServingsDecrease = todayViewModel::decreaseServings,
-                    onServingsIncrease = todayViewModel::increaseServings,
-                    onRetryDetail = todayViewModel::retryDetail,
-                    onRetry = todayViewModel::refresh,
-                    modifier = contentModifier,
-                )
-
                 Tab.RECIPES -> RecipesScreen(
                     state = recipesState,
                     serverUrl = serverUrl,
@@ -351,21 +327,18 @@ private fun SettingsRoute(
 ) {
     val scope = rememberCoroutineScope()
     val themeMode by container.settingsStore.themeMode.collectAsStateWithLifecycle()
-    val calorieTarget by container.settingsStore.dailyCalorieTarget.collectAsStateWithLifecycle()
     var language by remember { mutableStateOf(AppLanguage.current()) }
     SettingsScreen(
         account = container.settingsStore.readAccount(),
         themeMode = themeMode,
         appVersion = BuildConfig.VERSION_NAME,
         language = language,
-        calorieTarget = calorieTarget,
         onThemeModeChange = { mode -> container.settingsStore.setThemeMode(mode) },
         onLanguageChange = { selected ->
             language = selected
             // Setting the locale recreates the activity (and this screen).
             AppLanguage.apply(selected)
         },
-        onCalorieTargetChange = { target -> container.settingsStore.setDailyCalorieTarget(target) },
         onDisconnect = { container.connectionRepository.disconnect() },
         modifier = modifier,
     )
