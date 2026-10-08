@@ -1,7 +1,7 @@
 # Gradle
 .gradle/
 build/
-*/build/
+**/build/
 
 # Android Studio / IntelliJ
 .idea/
@@ -17,12 +17,23 @@ local.properties
 keystore/
 *.jks
 *.keystore
+*.p12
+*.pfx
 keystore.properties
 .env
+.env.*
+secrets.properties
 
-# OS
-.DS_Store
-*.swp
-
-# Build outputs (APKs)
+# Signed build outputs
+*.apk
+*.aab
+*.ap_
 dist/
+output-metadata.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.orig
+*.rej

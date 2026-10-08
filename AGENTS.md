@@ -2,7 +2,7 @@
 
 Нативный Android-клиент (Kotlin + Jetpack Compose, Material 3) для сервера
 [Mealie](https://mealie.io). Питание, рецепты и списки покупок. Визуальный язык
-повторяет проект Rutina (`Rutina`).
+повторяет проект Rutina.
 
 ## Зачем
 

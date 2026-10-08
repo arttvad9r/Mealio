@@ -8,9 +8,9 @@ class UrlNormalizerTest {
 
     @Test
     fun `adds scheme when missing`() {
-        val r = UrlNormalizer.normalize("192.168.1.10:9925")
+        val r = UrlNormalizer.normalize("mealie.local:9925")
         assertTrue(r is UrlNormalizer.Result.Ok)
-        assertEquals("http://192.168.1.10:9925/", (r as UrlNormalizer.Result.Ok).baseUrl)
+        assertEquals("http://mealie.local:9925/", (r as UrlNormalizer.Result.Ok).baseUrl)
     }
 
     @Test

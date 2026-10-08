@@ -1,0 +1,80 @@
+# Mealio
+
+Mealio — нативный Android-клиент для self-hosted сервера
+[Mealie](https://mealie.io) (рецепты, ингредиенты и списки покупок).
+
+Официальный веб-интерфейс Mealie неудобен на телефоне, а сторонние клиенты
+тянут за собой лишние слои. Mealio — тонкий нативный клиент: работает напрямую
+с вашим сервером Mealie по HTTP/JSON, без прослойки и без облака. Сервер
+остаётся источником истины, приложение — только UI.
+
+## Стек
+
+- **Kotlin** + **Jetpack Compose** + **Material 3**
+- Kotlin Coroutines / Flow, ViewModel
+- **Retrofit** + **OkHttp** + kotlinx.serialization
+- Coil (загрузка изображений рецептов)
+- Android Keystore (AES/GCM) для хранения API-токена
+- Gradle Kotlin DSL
+
+## Возможности текущей версии
+
+- Подключение к серверу по **URL + long-lived API-токену** с валидацией и
+  выводом информации о пользователе и сервере.
+- Список рецептов с поиском и фильтром по категориям.
+- Карточка рецепта: ингредиенты, шаги, пищевая ценность, масштабирование
+  порций.
+- Списки покупок: просмотр, отметка купленного, снятие отметки.
+- Добавление ингредиентов рецепта в список покупок.
+- Русский интерфейс, светлая и тёмная темы.
+- Безопасное хранение токена в Android Keystore; данные исключены из
+  cloud-backup и device-transfer.
+
+## Требования
+
+- Android 8.0+ (API 26)
+- Работающий сервер Mealie с включённым API
+- Для сборки: JDK 17 и Android SDK (build-tools, platform 36)
+
+## Подключение
+
+1. В Mealie создайте долгоживущий API-токен: **профиль → API-токены**.
+2. Откройте Mealio, введите адрес сервера (например
+   `http://192.168.1.10:9925` или `https://mealie.example.com`) и вставьте
+   токен.
+3. Приложение проверит соединение и покажет рецепты и списки покупок.
+
+Токен шифруется ключом Android Keystore и никогда не хранится в открытом виде.
+
+> **Cleartext HTTP.** Self-hosted Mealie часто работает по обычному `http://`
+> в локальной сети. Android 9+ по умолчанию блокирует cleartext, поэтому в
+> приложении разрешён cleartext HTTP (`network_security_config.xml`). Для
+> серверов за пределами доверенной сети используйте HTTPS.
+
+## Сборка
+
+```bash
+export JAVA_HOME=/path/to/jdk17
+export ANDROID_HOME=/path/to/android-sdk
+
+./gradlew :app:assembleDebug        # debug APK
+./gradlew :app:assembleRelease      # release APK (R8 + shrink resources)
+./gradlew :app:testDebugUnitTest    # юнит-тесты
+./gradlew :app:lintDebug            # lint
+```
+
+Release-сборка подписывается ключом из `keystore.properties` (вне репозитория).
+Если файла нет, release собирается debug-ключом, чтобы APK всё равно получился.
+
+## Статус
+
+**V1.1** — рабочий клиент: подключение, список и карточка рецептов,
+масштабирование порций, списки покупок, добавление ингредиентов в список,
+настройки и темы. Юнит-тесты и lint зелёные, собираются debug- и release-APK.
+
+Планы — в [`docs/ROADMAP.md`](docs/ROADMAP.md). Технические решения
+зафиксированы в [`docs/adr/`](docs/adr/).
+
+## Лицензия
+
+MIT — см. [LICENSE](LICENSE).
