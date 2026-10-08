@@ -30,6 +30,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -183,7 +184,7 @@ private fun RecipeCard(
                             )
                         }
                         recipe.totalTimeIso?.let { time ->
-                            DurationFormatter.format(time)?.let { human ->
+                            DurationFormatter.format(time, LocalContext.current)?.let { human ->
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                                     verticalAlignment = Alignment.CenterVertically,

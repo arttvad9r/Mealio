@@ -39,6 +39,7 @@ import com.arttvad9r.mealio.BuildConfig
 import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.data.AppContainer
 import com.arttvad9r.mealio.domain.model.ShoppingListSummary
+import com.arttvad9r.mealio.ui.AppLanguage
 import com.arttvad9r.mealio.ui.errorMessage
 import com.arttvad9r.mealio.ui.screens.ConnectScreen
 import com.arttvad9r.mealio.ui.screens.SettingsScreen
@@ -128,10 +129,20 @@ private fun AuthedRoot(container: AppContainer) {
     val todayViewModel: TodayViewModel = viewModel(
         key = "today",
         factory = viewModelFactory {
-            initializer { TodayViewModel(container.recipeRepository, container.todayStore) }
+            initializer {
+                TodayViewModel(
+                    repository = container.recipeRepository,
+                    store = container.todayStore,
+                    calorieTarget = container.settingsStore.dailyCalorieTarget.value,
+                )
+            }
         },
     )
     val todayState by todayViewModel.state.collectAsStateWithLifecycle()
+
+    // Keep the "Today" target in sync when it is changed in Settings.
+    val calorieTarget by container.settingsStore.dailyCalorieTarget.collectAsStateWithLifecycle()
+    LaunchedEffect(calorieTarget) { todayViewModel.updateTarget(calorieTarget) }
 
     val shoppingViewModel: ShoppingViewModel = viewModel(
         key = "shopping",
@@ -340,11 +351,21 @@ private fun SettingsRoute(
 ) {
     val scope = rememberCoroutineScope()
     val themeMode by container.settingsStore.themeMode.collectAsStateWithLifecycle()
+    val calorieTarget by container.settingsStore.dailyCalorieTarget.collectAsStateWithLifecycle()
+    var language by remember { mutableStateOf(AppLanguage.current()) }
     SettingsScreen(
         account = container.settingsStore.readAccount(),
         themeMode = themeMode,
         appVersion = BuildConfig.VERSION_NAME,
+        language = language,
+        calorieTarget = calorieTarget,
         onThemeModeChange = { mode -> container.settingsStore.setThemeMode(mode) },
+        onLanguageChange = { selected ->
+            language = selected
+            // Setting the locale recreates the activity (and this screen).
+            AppLanguage.apply(selected)
+        },
+        onCalorieTargetChange = { target -> container.settingsStore.setDailyCalorieTarget(target) },
         onDisconnect = { container.connectionRepository.disconnect() },
         modifier = modifier,
     )

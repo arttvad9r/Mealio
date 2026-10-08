@@ -134,7 +134,7 @@ fun RecipeDetailScreen(
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        recipe.totalTimeIso?.let { DurationFormatter.format(it) }?.let { human ->
+                        recipe.totalTimeIso?.let { DurationFormatter.format(it, LocalContext.current) }?.let { human ->
                             Spacer(Modifier.height(Space.xs))
                             Row(
                                 horizontalArrangement = Arrangement.spacedBy(Space.xs),
@@ -322,19 +322,19 @@ private fun NutritionSection(nutrition: Nutrition) {
         ) {
             NutritionMetric(
                 stringResource(R.string.nutrition_calories),
-                NutritionFormatter.format(nutrition.calories, NutritionFormatter.Metric.CALORIES),
+                NutritionFormatter.format(nutrition.calories, NutritionFormatter.Metric.CALORIES, LocalContext.current),
             )
             NutritionMetric(
                 stringResource(R.string.nutrition_protein),
-                NutritionFormatter.format(nutrition.protein, NutritionFormatter.Metric.PROTEIN),
+                NutritionFormatter.format(nutrition.protein, NutritionFormatter.Metric.PROTEIN, LocalContext.current),
             )
             NutritionMetric(
                 stringResource(R.string.nutrition_fat),
-                NutritionFormatter.format(nutrition.fat, NutritionFormatter.Metric.FAT),
+                NutritionFormatter.format(nutrition.fat, NutritionFormatter.Metric.FAT, LocalContext.current),
             )
             NutritionMetric(
                 stringResource(R.string.nutrition_carbs),
-                NutritionFormatter.format(nutrition.carbs, NutritionFormatter.Metric.CARBS),
+                NutritionFormatter.format(nutrition.carbs, NutritionFormatter.Metric.CARBS, LocalContext.current),
             )
         }
     }
@@ -345,7 +345,7 @@ private fun IngredientRow(
     ingredient: ScaledIngredient,
     modifier: Modifier = Modifier,
 ) {
-    val amount = QuantityFormatter.amount(ingredient.quantity, ingredient.unit)
+    val amount = QuantityFormatter.amount(ingredient.quantity, ingredient.unit, LocalContext.current)
     Row(
         modifier = modifier
             .fillMaxWidth()

@@ -7,6 +7,7 @@ import com.arttvad9r.mealio.data.repository.RecipeSource
 import com.arttvad9r.mealio.domain.model.RecipeDetail
 import com.arttvad9r.mealio.domain.model.RecipeSummary
 import com.arttvad9r.mealio.domain.today.DailyNutrition
+import com.arttvad9r.mealio.domain.today.DailyTarget
 import com.arttvad9r.mealio.domain.today.NutritionCalculator
 import com.arttvad9r.mealio.domain.today.TodaySelection
 import com.arttvad9r.mealio.domain.today.TodaySlot
@@ -35,6 +36,8 @@ data class TodayUiState(
     val summaries: List<RecipeSummary> = emptyList(),
     val slots: List<TodaySlotUi> = TodaySlot.entries.map { TodaySlotUi(slot = it) },
     val totals: DailyNutrition = DailyNutrition(),
+    /** The user's daily calorie goal, shown as the progress-bar target. */
+    val calorieTarget: Int = DailyTarget.DEFAULT_CALORIES,
 )
 
 /**
@@ -46,9 +49,12 @@ data class TodayUiState(
 class TodayViewModel(
     private val repository: RecipeSource,
     private val store: TodayStore,
+    calorieTarget: Int = DailyTarget.DEFAULT_CALORIES,
 ) : ViewModel() {
 
-    private val _state = MutableStateFlow(TodayUiState())
+    private val _state = MutableStateFlow(
+        TodayUiState(calorieTarget = calorieTarget.coerceIn(DailyTarget.MIN_CALORIES, DailyTarget.MAX_CALORIES)),
+    )
     val state: StateFlow<TodayUiState> = _state.asStateFlow()
 
     private val detailCache = mutableMapOf<String, RecipeDetail>()
@@ -88,6 +94,13 @@ class TodayViewModel(
     }
 
     fun refresh() = load()
+
+    /** Reflects a changed daily calorie goal (set in Settings) on the summary. */
+    fun updateTarget(calories: Int) {
+        _state.update {
+            it.copy(calorieTarget = DailyTarget.coerce(calories))
+        }
+    }
 
     /** Candidates for the slot selector; EXTRA accepts any recipe. */
     fun candidates(slot: TodaySlot): List<RecipeSummary> =

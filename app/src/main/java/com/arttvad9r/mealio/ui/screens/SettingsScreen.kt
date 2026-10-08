@@ -2,6 +2,8 @@ package com.arttvad9r.mealio.ui.screens
 
 import android.content.Intent
 import androidx.core.net.toUri
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,19 +19,27 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import com.arttvad9r.mealio.R
+import com.arttvad9r.mealio.domain.format.QuantityFormatter
 import com.arttvad9r.mealio.domain.model.ServerAccount
+import com.arttvad9r.mealio.domain.today.DailyTarget
+import com.arttvad9r.mealio.ui.AppLanguage
 import com.arttvad9r.mealio.ui.components.MealioCard
 import com.arttvad9r.mealio.ui.theme.Radius
 import com.arttvad9r.mealio.ui.theme.Space
@@ -40,12 +50,17 @@ fun SettingsScreen(
     account: ServerAccount?,
     themeMode: ThemeMode,
     appVersion: String,
+    language: AppLanguage,
+    calorieTarget: Int,
     onThemeModeChange: (ThemeMode) -> Unit,
+    onLanguageChange: (AppLanguage) -> Unit,
+    onCalorieTargetChange: (Int) -> Unit,
     onDisconnect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var showConfirm by remember { mutableStateOf(false) }
+    var showTargetDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -97,6 +112,66 @@ fun SettingsScreen(
                             label = { Text(mode.label()) },
                         )
                     }
+                }
+            }
+        }
+
+        MealioCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(Space.l),
+                verticalArrangement = Arrangement.spacedBy(Space.s),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_language_section),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
+                    AppLanguage.entries.forEach { option ->
+                        FilterChip(
+                            selected = language == option,
+                            onClick = { onLanguageChange(option) },
+                            shape = Radius.field,
+                            label = { Text(option.label()) },
+                        )
+                    }
+                }
+            }
+        }
+
+        MealioCard(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(Space.l),
+                verticalArrangement = Arrangement.spacedBy(Space.s),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_target_section),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                // A compact setting row (label + current value) that opens a
+                // small dialog — not an inline field that saves as you type.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showTargetDialog = true }
+                        .padding(vertical = Space.s),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_target_label),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = stringResource(
+                            R.string.settings_target_value,
+                            QuantityFormatter.formatNumber(calorieTarget.toDouble(), LocalContext.current),
+                        ),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -161,6 +236,17 @@ fun SettingsScreen(
         Spacer(Modifier.height(Space.m))
     }
 
+    if (showTargetDialog) {
+        CalorieTargetDialog(
+            current = calorieTarget,
+            onDismiss = { showTargetDialog = false },
+            onSave = { value ->
+                onCalorieTargetChange(value)
+                showTargetDialog = false
+            },
+        )
+    }
+
     if (showConfirm) {
         AlertDialog(
             onDismissRequest = { showConfirm = false },
@@ -195,6 +281,61 @@ fun SettingsScreen(
 }
 
 @Composable
+private fun CalorieTargetDialog(
+    current: Int,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> Unit,
+) {
+    var text by rememberSaveable { mutableStateOf(current.toString()) }
+    val valid = DailyTarget.parseInput(text) != null
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        shape = Radius.card,
+        title = { Text(stringResource(R.string.settings_target_label)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { input -> text = input.filter { it.isDigit() }.take(5) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = Radius.field,
+                    singleLine = true,
+                    isError = text.isNotEmpty() && !valid,
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Number,
+                        imeAction = ImeAction.Done,
+                    ),
+                    supportingText = {
+                        Text(
+                            text = if (text.isNotEmpty() && !valid) {
+                                stringResource(R.string.settings_target_error)
+                            } else {
+                                stringResource(R.string.settings_target_support)
+                            },
+                        )
+                    },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { DailyTarget.parseInput(text)?.let(onSave) },
+                enabled = valid,
+            ) {
+                // Reuse the existing "Save-style" confirm wording: OK.
+                Text(stringResource(R.string.common_ok))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
+}
+
+@Composable
 private fun InfoValue(value: String?) {
     Text(
         text = value?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_value_dash),
@@ -204,6 +345,15 @@ private fun InfoValue(value: String?) {
         overflow = TextOverflow.Ellipsis,
     )
 }
+
+@Composable
+private fun AppLanguage.label(): String = stringResource(
+    when (this) {
+        AppLanguage.SYSTEM -> R.string.settings_language_system
+        AppLanguage.RUSSIAN -> R.string.settings_language_russian
+        AppLanguage.ENGLISH -> R.string.settings_language_english
+    },
+)
 
 @Composable
 private fun ThemeMode.label(): String = stringResource(

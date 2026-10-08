@@ -26,10 +26,14 @@ android {
         applicationId = "com.arttvad9r.mealio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        resourceConfigurations += listOf("ru")
+        // Ship only the locales the app actually supports (English default,
+        // Russian). Also keeps translations pulled in by libraries out of the APK.
+        androidResources {
+            localeFilters += listOf("en", "ru")
+        }
     }
 
     buildTypes {
@@ -78,6 +82,9 @@ kotlin {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
+    // AppCompatDelegate.setApplicationLocales: the standard per-app locale API,
+    // backwards compatible down to minSdk 26.
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")

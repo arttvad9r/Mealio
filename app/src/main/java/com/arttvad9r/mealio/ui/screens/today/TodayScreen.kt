@@ -40,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -48,9 +49,9 @@ import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.domain.format.QuantityFormatter
 import com.arttvad9r.mealio.domain.model.RecipeSummary
 import com.arttvad9r.mealio.domain.today.DailyNutrition
+import com.arttvad9r.mealio.domain.today.DailyTarget
 import com.arttvad9r.mealio.domain.today.NutritionCalculator
 import com.arttvad9r.mealio.domain.today.TodaySlot
-import com.arttvad9r.mealio.domain.today.TodayTargets
 import com.arttvad9r.mealio.ui.components.CenteredLoading
 import com.arttvad9r.mealio.ui.components.CompactSearchField
 import com.arttvad9r.mealio.ui.components.ErrorState
@@ -103,7 +104,7 @@ fun TodayScreen(
         }
 
         item(key = "summary") {
-            DailySummaryCard(totals = state.totals)
+            DailySummaryCard(totals = state.totals, targetCalories = state.calorieTarget)
         }
 
         slotSection(
@@ -203,9 +204,9 @@ private fun LazyListScope.slotSection(
 }
 
 @Composable
-private fun DailySummaryCard(totals: DailyNutrition) {
-    val target = TodayTargets.CALORIES
-    val progress = (totals.calories / target).coerceIn(0.0, 1.0).toFloat()
+private fun DailySummaryCard(totals: DailyNutrition, targetCalories: Int) {
+    val target = targetCalories.toDouble()
+    val progress = DailyTarget.progress(totals.calories, targetCalories)
 
     MealioCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -215,8 +216,8 @@ private fun DailySummaryCard(totals: DailyNutrition) {
             Text(
                 text = stringResource(
                     R.string.today_calories_value,
-                    QuantityFormatter.formatNumber(totals.calories),
-                    QuantityFormatter.formatNumber(target),
+                    QuantityFormatter.formatNumber(totals.calories, LocalContext.current),
+                    QuantityFormatter.formatNumber(target, LocalContext.current),
                 ),
                 style = MaterialTheme.typography.headlineSmall,
                 color = MaterialTheme.colorScheme.onSurface,
@@ -237,9 +238,9 @@ private fun DailySummaryCard(totals: DailyNutrition) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(Space.l),
             ) {
-                MacroText(stringResource(R.string.today_macro_short_b, QuantityFormatter.formatNumber(totals.protein)))
-                MacroText(stringResource(R.string.today_macro_short_zh, QuantityFormatter.formatNumber(totals.fat)))
-                MacroText(stringResource(R.string.today_macro_short_u, QuantityFormatter.formatNumber(totals.carbs)))
+                MacroText(stringResource(R.string.today_macro_short_b, QuantityFormatter.formatNumber(totals.protein, LocalContext.current)))
+                MacroText(stringResource(R.string.today_macro_short_zh, QuantityFormatter.formatNumber(totals.fat, LocalContext.current)))
+                MacroText(stringResource(R.string.today_macro_short_u, QuantityFormatter.formatNumber(totals.carbs, LocalContext.current)))
             }
         }
     }
@@ -292,7 +293,7 @@ private fun SlotCard(
                         Text(
                             text = stringResource(
                                 R.string.today_kcal_value,
-                                QuantityFormatter.formatNumber(kcal),
+                                QuantityFormatter.formatNumber(kcal, LocalContext.current),
                             ),
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
@@ -374,7 +375,7 @@ private fun CompactServingStepper(
             )
         }
         Text(
-            text = QuantityFormatter.formatNumber(servings),
+            text = QuantityFormatter.formatNumber(servings, LocalContext.current),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
             textAlign = TextAlign.Center,
@@ -522,7 +523,7 @@ private fun SelectorRow(recipe: RecipeSummary, onClick: () -> Unit) {
             )
             val kcal = NutritionCalculator.perServing(recipe.calories, recipe.servings)
             val subtitle = kcal?.let {
-                stringResource(R.string.today_kcal_value, QuantityFormatter.formatNumber(it))
+                stringResource(R.string.today_kcal_value, QuantityFormatter.formatNumber(it, LocalContext.current))
             } ?: recipe.categories.firstOrNull()
             if (subtitle != null) {
                 Text(

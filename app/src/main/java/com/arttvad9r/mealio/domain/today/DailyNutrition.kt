@@ -19,9 +19,35 @@ data class DailyNutrition(
 }
 
 /**
- * The day's targets. Kept in one central place so it can become a real setting
- * later without touching the screen.
+ * Bounds and default for the user-configurable daily calorie target. The value
+ * itself is a user setting (see SettingsStore); this only guards it, so a bad
+ * stored or typed value can never reach the UI.
  */
-object TodayTargets {
-    const val CALORIES: Double = 2300.0
+object DailyTarget {
+    const val DEFAULT_CALORIES: Int = 2300
+    const val MIN_CALORIES: Int = 500
+    const val MAX_CALORIES: Int = 10000
+
+    /**
+     * Parses a user-typed kcal amount. Returns null when the input is empty, not
+     * a number, or outside [MIN_CALORIES]..[MAX_CALORIES] — the caller shows a
+     * localised error instead of saving a bad value.
+     */
+    fun parseInput(raw: String): Int? {
+        val value = raw.trim().toIntOrNull() ?: return null
+        return value.takeIf { it in MIN_CALORIES..MAX_CALORIES }
+    }
+
+    /** Keeps a stored or programmatic target inside the allowed bounds. */
+    fun coerce(value: Int): Int = value.coerceIn(MIN_CALORIES, MAX_CALORIES)
+
+    /**
+     * Summary-bar fill fraction for `calories / target`, clamped to 0..1 so a
+     * day that exceeds the goal never renders past a full bar. The number shown
+     * next to the bar is NOT clamped — the real value stays visible.
+     */
+    fun progress(calories: Double, target: Int): Float {
+        if (target <= 0) return 0f
+        return (calories / target).coerceIn(0.0, 1.0).toFloat()
+    }
 }

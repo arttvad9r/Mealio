@@ -30,9 +30,9 @@ interface.
 > **Mealio requires an existing, running Mealie server.** If you don't have one
 > yet, start at [mealie.io](https://mealie.io) to learn how to self-host it.
 
-> **Language.** The current **V1.2 UI is Russian-first (ru)**. English
-> application localization is planned for **V1.3**. The documentation is
-> available in English (this page) and Russian ([README.md](README.md)).
+> **Language.** In **V1.3** (on `main`, not yet released) the UI is localized:
+> English is the default language, Russian is selectable in Settings. The
+> documentation is available in English (this page) and Russian ([README.md](README.md)).
 
 ## Screenshots
 
@@ -53,7 +53,7 @@ interface.
 </table>
 </div>
 
-<sub>The screenshots show the V1.2 UI, which is currently Russian-only — see [Project status](#project-status).</sub>
+<sub>The screenshots show the V1.2 UI, which was Russian-only — see [Project status](#project-status). V1.3 adds an English UI on `main`.</sub>
 
 ## Features
 
@@ -124,7 +124,7 @@ Mealio is an **independent community project** and is **not affiliated with or
 endorsed by** the Mealie project.
 
 - **Current state:** a usable personal Android client, under active development.
-- **Primary UI language:** Russian (English is planned for V1.3).
+- **UI languages:** English (default) and Russian, both in V1.3 on `main`.
 
 It is not marketed as production-grade or enterprise-stable software — it's a
 small, focused app that works well for its author's own self-hosted setup.
@@ -157,9 +157,11 @@ Notes for contributors, including API quirks and architecture, are in
 
 ## Roadmap
 
-The next direction is **V1.3**:
+**V1.3** is implemented on `main` and is being prepared for release (not published
+yet — the latest release is still [v1.2](https://github.com/arttvad9r/Mealio/releases/latest)):
 
-- English application localization;
+- UI localization: English as the default language, Russian as a selectable one,
+  switchable from Settings;
 - a configurable daily calorie target instead of the fixed 2300 kcal.
 
 Possible future directions — no timelines promised, and only what actually fits

@@ -8,6 +8,7 @@ import com.arttvad9r.mealio.data.repository.RecipeSource
 import com.arttvad9r.mealio.domain.model.Nutrition
 import com.arttvad9r.mealio.domain.model.RecipeDetail
 import com.arttvad9r.mealio.domain.model.RecipeSummary
+import com.arttvad9r.mealio.domain.today.DailyTarget
 import com.arttvad9r.mealio.domain.today.TodaySelection
 import com.arttvad9r.mealio.domain.today.TodaySlot
 import kotlinx.coroutines.CompletableDeferred
@@ -307,5 +308,79 @@ class TodayViewModelTest {
         val slot = vm.state.value.slots.first { it.slot == TodaySlot.MAIN }
         assertEquals("b", slot.selection?.slug) // not restored to the stale "a"
         assertEquals("b", slot.detail?.slug)
+    }
+
+    // --- configurable daily calorie target --------------------------------------
+
+    @Test
+    fun `initial target falls back to the default`() = runTest {
+        val vm = TodayViewModel(repository = FakeSource(recipes = emptyList()), store = store(FakeStorage()))
+        assertEquals(DailyTarget.DEFAULT_CALORIES, vm.state.value.calorieTarget)
+    }
+
+    @Test
+    fun `constructor target is applied`() = runTest {
+        val vm = TodayViewModel(
+            repository = FakeSource(recipes = emptyList()),
+            store = store(FakeStorage()),
+            calorieTarget = 1800,
+        )
+        assertEquals(1800, vm.state.value.calorieTarget)
+    }
+
+    @Test
+    fun `updateTarget reflects the new value`() = runTest {
+        val vm = TodayViewModel(repository = FakeSource(recipes = emptyList()), store = store(FakeStorage()))
+        vm.updateTarget(2500)
+        assertEquals(2500, vm.state.value.calorieTarget)
+    }
+
+    @Test
+    fun `out-of-range target is clamped to the allowed bounds`() = runTest {
+        val vm = TodayViewModel(repository = FakeSource(recipes = emptyList()), store = store(FakeStorage()))
+        vm.updateTarget(DailyTarget.MAX_CALORIES + 5_000)
+        assertEquals(DailyTarget.MAX_CALORIES, vm.state.value.calorieTarget)
+        vm.updateTarget(0)
+        assertEquals(DailyTarget.MIN_CALORIES, vm.state.value.calorieTarget)
+    }
+
+    @Test
+    fun `changing the target keeps the chosen dishes and totals`() = runTest {
+        val vm = TodayViewModel(
+            repository = FakeSource(recipes = listOf(summary("chicken", listOf("Основное")))),
+            store = store(FakeStorage()),
+        )
+        advanceUntilIdle()
+        vm.pick(TodaySlot.MAIN, "chicken")
+        advanceUntilIdle()
+        assertEquals(400.0, vm.state.value.totals.calories, 0.001)
+
+        vm.updateTarget(2000)
+        advanceUntilIdle()
+        val slot = vm.state.value.slots.first { it.slot == TodaySlot.MAIN }
+        assertEquals("chicken", slot.selection?.slug)
+        assertEquals(400.0, vm.state.value.totals.calories, 0.001) // totals untouched
+        assertEquals(2000, vm.state.value.calorieTarget)
+    }
+
+    @Test
+    fun `local date rollover clears selections but keeps the target`() = runTest {
+        var date = "2026-10-08"
+        val storage = FakeStorage()
+        val dayStore = TodayStore(storage, { date }, dispatcher)
+        dayStore.save(listOf(TodaySelection(TodaySlot.MAIN, "chicken", 1.0)))
+
+        // A fresh ViewModel for the next day reads the same storage: selections
+        // are stale (old date) -> empty, while the target is a user setting.
+        date = "2026-10-09"
+        val vm = TodayViewModel(
+            repository = FakeSource(recipes = listOf(summary("chicken", listOf("Основное")))),
+            store = TodayStore(storage, { date }, dispatcher),
+            calorieTarget = 2000,
+        )
+        advanceUntilIdle()
+        assertEquals(2000, vm.state.value.calorieTarget)
+        assertNull(vm.state.value.slots.first { it.slot == TodaySlot.MAIN }.selection)
+        assertEquals(0.0, vm.state.value.totals.calories, 0.001)
     }
 }
