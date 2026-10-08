@@ -115,6 +115,7 @@ fun TodayScreen(
             onRemove = onRemove,
             onDecrease = onServingsDecrease,
             onIncrease = onServingsIncrease,
+            onReplace = { selectorSlot = it },
             onRetry = onRetryDetail,
         )
         slotSection(
@@ -125,6 +126,7 @@ fun TodayScreen(
             onRemove = onRemove,
             onDecrease = onServingsDecrease,
             onIncrease = onServingsIncrease,
+            onReplace = { selectorSlot = it },
             onRetry = onRetryDetail,
         )
         slotSection(
@@ -135,6 +137,7 @@ fun TodayScreen(
             onRemove = onRemove,
             onDecrease = onServingsDecrease,
             onIncrease = onServingsIncrease,
+            onReplace = { selectorSlot = it },
             onRetry = onRetryDetail,
         )
         slotSection(
@@ -145,6 +148,7 @@ fun TodayScreen(
             onRemove = onRemove,
             onDecrease = onServingsDecrease,
             onIncrease = onServingsIncrease,
+            onReplace = { selectorSlot = it },
             onRetry = onRetryDetail,
         )
     }
@@ -178,6 +182,7 @@ private fun LazyListScope.slotSection(
     onRemove: (TodaySlot) -> Unit,
     onDecrease: (TodaySlot) -> Unit,
     onIncrease: (TodaySlot) -> Unit,
+    onReplace: (TodaySlot) -> Unit,
     onRetry: (TodaySlot) -> Unit,
 ) {
     item(key = "header-$header") {
@@ -197,6 +202,7 @@ private fun LazyListScope.slotSection(
                 onRemove = { onRemove(slot) },
                 onDecrease = { onDecrease(slot) },
                 onIncrease = { onIncrease(slot) },
+                onReplace = { onReplace(slot) },
                 onRetry = { onRetry(slot) },
             )
         }
@@ -262,6 +268,7 @@ private fun SlotCard(
     onRemove: () -> Unit,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
+    onReplace: () -> Unit,
     onRetry: () -> Unit,
 ) {
     val selection = ui.selection
@@ -277,7 +284,13 @@ private fun SlotCard(
             verticalArrangement = Arrangement.spacedBy(Space.s),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
+                // Tapping the dish (name + kcal) opens the selector again, so the
+                // chosen dish can be replaced in place — no extra menu needed.
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable(onClick = onReplace),
+                ) {
                     Text(
                         text = detail?.name ?: selection.slug,
                         style = MaterialTheme.typography.titleMedium,

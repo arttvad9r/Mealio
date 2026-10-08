@@ -383,4 +383,90 @@ class TodayViewModelTest {
         assertNull(vm.state.value.slots.first { it.slot == TodaySlot.MAIN }.selection)
         assertEquals(0.0, vm.state.value.totals.calories, 0.001)
     }
+
+    // --- servings stepper (V1.4) -------------------------------------------------
+
+    @Test
+    fun `picking a dish starts at one serving`() = runTest {
+        val vm = TodayViewModel(
+            repository = FakeSource(recipes = listOf(summary("chicken", listOf("Основное")))),
+            store = store(FakeStorage()),
+        )
+        advanceUntilIdle()
+        vm.pick(TodaySlot.MAIN, "chicken")
+        advanceUntilIdle()
+        val slot = vm.state.value.slots.first { it.slot == TodaySlot.MAIN }
+        assertEquals(1.0, slot.selection?.servings ?: 0.0, 0.0001)
+        assertEquals(400.0, vm.state.value.totals.calories, 0.001)
+    }
+
+    @Test
+    fun `increasing servings multiplies the dish nutrition`() = runTest {
+        val vm = TodayViewModel(
+            repository = FakeSource(recipes = listOf(summary("chicken", listOf("Основное")))),
+            store = store(FakeStorage()),
+        )
+        advanceUntilIdle()
+        vm.pick(TodaySlot.MAIN, "chicken")
+        advanceUntilIdle()
+        vm.increaseServings(TodaySlot.MAIN)
+        advanceUntilIdle()
+        assertEquals(2.0, vm.state.value.slots.first { it.slot == TodaySlot.MAIN }.selection?.servings ?: 0.0, 0.0001)
+        // 800 kcal over 2 recipe servings at 2 selected -> 800.
+        assertEquals(800.0, vm.state.value.totals.calories, 0.001)
+        assertEquals(40.0, vm.state.value.totals.protein, 0.001)
+    }
+
+    @Test
+    fun `servings never drop below one`() = runTest {
+        val vm = TodayViewModel(
+            repository = FakeSource(recipes = listOf(summary("chicken", listOf("Основное")))),
+            store = store(FakeStorage()),
+        )
+        advanceUntilIdle()
+        vm.pick(TodaySlot.MAIN, "chicken")
+        advanceUntilIdle()
+        repeat(3) { vm.decreaseServings(TodaySlot.MAIN) }
+        advanceUntilIdle()
+        assertEquals(1.0, vm.state.value.slots.first { it.slot == TodaySlot.MAIN }.selection?.servings ?: 0.0, 0.0001)
+        assertEquals(400.0, vm.state.value.totals.calories, 0.001)
+    }
+
+    @Test
+    fun `several dishes sum their scaled nutrition`() = runTest {
+        val vm = TodayViewModel(
+            repository = FakeSource(
+                recipes = listOf(summary("chicken", listOf("Основное")), summary("rice", listOf("Гарнир"))),
+            ),
+            store = store(FakeStorage()),
+        )
+        advanceUntilIdle()
+        vm.pick(TodaySlot.MAIN, "chicken")   // 800/2 = 400 per serving
+        vm.pick(TodaySlot.SIDE, "rice")      // 800/2 = 400 per serving
+        advanceUntilIdle()
+        assertEquals(800.0, vm.state.value.totals.calories, 0.001)
+
+        vm.increaseServings(TodaySlot.MAIN)  // chicken x2
+        advanceUntilIdle()
+        assertEquals(1200.0, vm.state.value.totals.calories, 0.001)
+    }
+
+    @Test
+    fun `servings survive a reload in the same day`() = runTest {
+        val storage = FakeStorage()
+        val src = FakeSource(recipes = listOf(summary("chicken", listOf("Основное"))))
+        val vm = TodayViewModel(repository = src, store = store(storage))
+        advanceUntilIdle()
+        vm.pick(TodaySlot.MAIN, "chicken")
+        advanceUntilIdle()
+        vm.increaseServings(TodaySlot.MAIN)
+        advanceUntilIdle()
+
+        // A fresh ViewModel (relaunch) reads the same day back.
+        val reloaded = TodayViewModel(repository = src, store = store(storage))
+        advanceUntilIdle()
+        val slot = reloaded.state.value.slots.first { it.slot == TodaySlot.MAIN }
+        assertEquals("chicken", slot.selection?.slug)
+        assertEquals(2.0, slot.selection?.servings ?: 0.0, 0.0001)
+    }
 }

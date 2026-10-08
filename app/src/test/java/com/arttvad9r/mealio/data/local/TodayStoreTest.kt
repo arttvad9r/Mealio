@@ -67,4 +67,25 @@ class TodayStoreTest {
         store.clear()
         assertTrue(store.read().isEmpty())
     }
+
+    @Test
+    fun `legacy v1_3 payload without servings reads as one`() = runTest {
+        // The V1.3 payload had no "servings" key at all; it must restore as 1.
+        val storage = FakeStorage().apply {
+            value = """{"date":"2026-10-08","selections":[{"slot":"MAIN","slug":"kurica"}]}"""
+        }
+        val restored = store(storage).read()
+        assertEquals(1, restored.size)
+        assertEquals("kurica", restored.single().slug)
+        assertEquals(1.0, restored.single().servings, 0.0001)
+    }
+
+    @Test
+    fun `unknown keys in a stored payload are ignored`() = runTest {
+        val storage = FakeStorage().apply {
+            value = """{"date":"2026-10-08","futureField":true,"selections":[{"slot":"MAIN","slug":"kurica","servings":2.0,"extra":9}]}"""
+        }
+        val restored = store(storage).read()
+        assertEquals(2.0, restored.single().servings, 0.0001)
+    }
 }
