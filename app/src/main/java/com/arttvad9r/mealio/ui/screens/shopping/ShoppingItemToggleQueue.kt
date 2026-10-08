@@ -8,15 +8,25 @@ import kotlinx.coroutines.launch
 /**
  * Serialises check/uncheck mutations of a single shopping item.
  *
- * A burst of rapid taps would otherwise send several concurrent PUTs for the
- * same item and could end with an order/rollback race. Here, while a send is in
- * flight a newer request merely replaces the pending target, so there is at most
- * one in-flight request per item and the final state always matches the last
- * requested one. Items are independent — one item's send never blocks another.
+ * State machine per item:
+ * - `confirmed` — the state the server last acknowledged. Only ever set after a
+ *   successful send. `seed()` sets the baseline from a server read.
+ * - `pending` — the newest user intent not yet sent. A request during an
+ *   in-flight send merely overwrites it (coalescing); it is never dropped.
+ *
+ * `drain` removes the pending target, and sends only when it differs from
+ * `confirmed`. On failure it does NOT discard a newer intent: if one arrived
+ * while the send was in flight, the loop immediately processes it (re-sending if
+ * it still differs, or exiting if it now equals `confirmed`). The UI is only
+ * rolled back when no newer intent exists — i.e. when the failed target is still
+ * the user's latest wish — so a tap made during a failed request always wins.
+ *
+ * At most one request per item is in flight; different items are independent and
+ * never block each other.
  *
  * @param send performs the network mutation for (itemId, checked).
- * @param onRollback called when a send fails, with the last state confirmed by
- *   the server, so the caller can drop its optimistic update.
+ * @param onRollback called when a send fails and no newer intent is pending,
+ *   with the last state confirmed by the server.
  */
 class ShoppingItemToggleQueue(
     private val scope: CoroutineScope,
@@ -51,11 +61,12 @@ class ShoppingItemToggleQueue(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
-                pending.remove(itemId)
+                // A tap that arrived during the failed send is a newer intent and
+                // must not be lost: process it instead of rolling over it. The
+                // optimistic UI already shows that newer intent, so no rollback.
+                if (pending[itemId] != null) continue
                 onRollback(itemId, confirmed[itemId] ?: !target)
-                // Keep draining: a tap during the failed send is still pending and
-                // must win, otherwise the UI would show a state the server rejected.
-                continue
+                return
             }
         }
     }
