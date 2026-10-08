@@ -9,8 +9,10 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.Properties
 
 // Signing credentials live in keystore.properties (git-ignored), next to the
-// generated keystore/ directory. When absent (fresh clone, CI) release falls
-// back to the debug key so an installable APK can always be produced.
+// generated keystore/ directory. When it is absent (fresh clone, CI) the release
+// build is left UNSIGNED — it is never silently signed with the debug key, which
+// would only be installable as a debug build and is easy to mistake for a real
+// release. Debug builds are unaffected.
 val keystorePropsFile = rootProject.file("keystore.properties")
 val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
@@ -38,17 +40,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            // Real key when keystore.properties is present; otherwise fall back
-            // to the debug key so an installable APK can always be produced.
-            signingConfig = if (keystoreProps.isNotEmpty()) {
-                signingConfigs.create("release") {
+            // Real release key when keystore.properties is present. Without it
+            // (fresh clone, CI) the release build stays unsigned.
+            if (keystoreProps.isNotEmpty()) {
+                signingConfig = signingConfigs.create("release") {
                     storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
                     storePassword = keystoreProps.getProperty("storePassword")
                     keyAlias = keystoreProps.getProperty("keyAlias")
                     keyPassword = keystoreProps.getProperty("keyPassword")
                 }
-            } else {
-                signingConfigs.getByName("debug")
             }
         }
     }

@@ -6,6 +6,7 @@ import com.arttvad9r.mealio.data.repository.ShoppingRepository
 import com.arttvad9r.mealio.domain.model.ShoppingItem
 import com.arttvad9r.mealio.domain.model.ShoppingListDetail
 import com.arttvad9r.mealio.domain.model.ShoppingListSummary
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -24,11 +25,14 @@ class ShoppingViewModel(private val repository: ShoppingRepository) : ViewModel(
     private val _state = MutableStateFlow(ShoppingUiState())
     val state: StateFlow<ShoppingUiState> = _state.asStateFlow()
 
+    private var loadJob: Job? = null
+
     init { load() }
 
     fun load() {
         _state.update { it.copy(isLoading = it.lists.isEmpty(), error = null) }
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             runCatching { repository.lists() }
                 .onSuccess { lists ->
                     _state.update { it.copy(lists = lists, isLoading = false, isRefreshing = false) }
@@ -59,27 +63,42 @@ class ShoppingListDetailViewModel(
     private val _state = MutableStateFlow(ShoppingListDetailUiState())
     val state: StateFlow<ShoppingListDetailUiState> = _state.asStateFlow()
 
-    init { load() }
+    private var loadJob: Job? = null
+
+    /** Latest item seen from the server, so a toggle can send the full record back. */
+    private val itemsById = mutableMapOf<String, ShoppingItem>()
+
+    private val toggleQueue = ShoppingItemToggleQueue(
+        scope = viewModelScope,
+        send = { itemId, checked ->
+            val item = itemsById[itemId]
+            if (item != null) repository.setChecked(item.copy(checked = checked), checked)
+        },
+        onRollback = ::applyLocalCheck,
+    )
 
     fun load() {
         _state.update { it.copy(isLoading = it.list == null, error = null) }
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             runCatching { repository.list(listId) }
-                .onSuccess { detail -> _state.update { it.copy(list = detail, isLoading = false) } }
+                .onSuccess { detail ->
+                    itemsById.clear()
+                    detail.items.forEach { item ->
+                        itemsById[item.id] = item
+                        toggleQueue.seed(item.id, item.checked)
+                    }
+                    _state.update { it.copy(list = detail, isLoading = false, error = null) }
+                }
                 .onFailure { e -> _state.update { it.copy(isLoading = false, error = e) } }
         }
     }
 
     fun toggle(item: ShoppingItem) {
+        itemsById[item.id] = item
         val newChecked = !item.checked
         applyLocalCheck(item.id, newChecked)
-        viewModelScope.launch {
-            runCatching { repository.setChecked(item, newChecked) }
-                .onFailure {
-                    // revert on failure
-                    applyLocalCheck(item.id, item.checked)
-                }
-        }
+        toggleQueue.request(item.id, newChecked)
     }
 
     private fun applyLocalCheck(itemId: String, checked: Boolean) {

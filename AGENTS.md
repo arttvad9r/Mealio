@@ -39,7 +39,8 @@ export ANDROID_HOME=~/Android/Sdk
 Артефакты: `app/build/outputs/apk/{debug,release}/`.
 
 Release-подпись берётся из `keystore.properties` (вне git) и `keystore/*.jks`.
-Без них release подписывается debug-ключом, чтобы APK всё равно собирался.
+Без них release собирается **без подписи** (debug-ключ для release не
+используется); debug APK подписывается автоматически и собирается всегда.
 
 ## Конвенции и подводные камни
 

@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -191,6 +192,7 @@ private fun AuthedRoot(container: AppContainer) {
                 slug = selectedRecipeSlug!!,
                 serverUrl = serverUrl,
                 shoppingLists = shoppingState.lists,
+                onIngredientsAdded = shoppingViewModel::refresh,
                 modifier = contentModifier,
             )
 
@@ -233,6 +235,7 @@ private fun RecipeDetailRoute(
     slug: String,
     serverUrl: String,
     shoppingLists: List<ShoppingListSummary>,
+    onIngredientsAdded: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -264,6 +267,9 @@ private fun RecipeDetailRoute(
                         .onSuccess {
                             addIsError = false
                             addMessage = context.getString(R.string.recipe_add_to_list_done_text)
+                            // Refresh the shopping lists so the newly added items
+                            // (and any count) are visible without a manual pull.
+                            onIngredientsAdded()
                         }
                         .onFailure {
                             addIsError = true
@@ -292,6 +298,9 @@ private fun ShoppingDetailRoute(
         },
     )
     val state by viewModel.state.collectAsStateWithLifecycle()
+    // The detail ViewModel is cached per list in the activity store, so reload on
+    // (re)entry: ingredients added from a recipe must show up without a manual pull.
+    LaunchedEffect(listId) { viewModel.load() }
     ShoppingListDetailScreen(
         state = state,
         onToggle = viewModel::toggle,

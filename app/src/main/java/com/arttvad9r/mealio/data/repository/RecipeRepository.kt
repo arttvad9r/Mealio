@@ -11,16 +11,20 @@ class RecipeRepository(private val connection: ConnectionRepository) {
 
     private fun api() = connection.api()
 
+    /**
+     * Fetches every recipe matching the search/category filter. Mealie treats
+     * `perPage = -1` as "no limit" (repository_generic.py: per_page == -1 ->
+     * limit = None), so one request returns all recipes without manual paging.
+     */
     suspend fun recipes(
         search: String? = null,
         categorySlug: String? = null,
-        perPage: Int = 60,
     ): List<RecipeSummary> = withContext(Dispatchers.IO) {
         val api = api() ?: return@withContext emptyList()
         try {
             api.recipes(
                 page = 1,
-                perPage = perPage,
+                perPage = -1,
                 search = search?.takeIf { it.isNotBlank() },
                 categories = categorySlug?.let { listOf(it) },
                 orderBy = "name",

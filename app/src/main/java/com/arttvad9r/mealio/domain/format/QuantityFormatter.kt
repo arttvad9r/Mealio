@@ -82,7 +82,6 @@ object QuantityFormatter {
     /** Unit display label honouring Mealie's abbreviation/plural rules. */
     private fun unitLabel(unit: IngredientUnit?, plural: Boolean): String? {
         if (unit == null) return null
-        val singular = plural == false || plural == true && unit.pluralName.isNullOrBlank()
         if (unit.useAbbreviation) {
             val pluralAbbr = unit.pluralAbbreviation?.takeIf { it.isNotBlank() }
             val singularAbbr = unit.abbreviation?.takeIf { it.isNotBlank() }

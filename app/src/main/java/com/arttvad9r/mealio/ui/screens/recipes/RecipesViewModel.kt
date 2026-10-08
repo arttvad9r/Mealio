@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arttvad9r.mealio.data.repository.RecipeRepository
 import com.arttvad9r.mealio.domain.model.RecipeSummary
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +29,11 @@ class RecipesViewModel(private val repository: RecipeRepository) : ViewModel() {
     val state: StateFlow<RecipesUiState> = _state.asStateFlow()
 
     private var searchJob: Job? = null
+    private var loadJob: Job? = null
+
+    /** Monotonic id; only the newest load may write the UI, so a slow older
+     *  response can never overwrite fresher data. */
+    private var loadGeneration = 0
 
     init {
         loadCategories()
@@ -38,16 +44,16 @@ class RecipesViewModel(private val repository: RecipeRepository) : ViewModel() {
         _state.update { it.copy(query = value) }
         searchJob?.cancel()
         searchJob = viewModelScope.launch {
-            delay(300)
+            delay(DEBOUNCE_MS)
             load()
         }
     }
 
     fun onCategorySelected(slug: String?) {
-        if (_state.value.selectedCategorySlug == slug) {
-            _state.update { it.copy(selectedCategorySlug = null) }
-        } else {
-            _state.update { it.copy(selectedCategorySlug = slug) }
+        // Drop a pending debounce so it cannot fire with a stale category.
+        searchJob?.cancel()
+        _state.update {
+            it.copy(selectedCategorySlug = if (it.selectedCategorySlug == slug) null else slug)
         }
         load()
     }
@@ -66,22 +72,36 @@ class RecipesViewModel(private val repository: RecipeRepository) : ViewModel() {
         }
     }
 
+    /**
+     * Cancels any in-flight load and starts a new one for the current query and
+     * category. Combined with the generation check this guarantees that only the
+     * most recent request ever touches the UI state.
+     */
     private fun load() {
         val current = _state.value
+        val generation = ++loadGeneration
+        loadJob?.cancel()
         _state.update { it.copy(isLoading = current.recipes.isEmpty(), error = null) }
-        viewModelScope.launch {
-            runCatching {
-                repository.recipes(
+        loadJob = viewModelScope.launch {
+            try {
+                val list = repository.recipes(
                     search = current.query,
                     categorySlug = current.selectedCategorySlug,
                 )
-            }.onSuccess { list ->
+                if (generation != loadGeneration) return@launch
                 _state.update {
                     it.copy(recipes = list, isLoading = false, isRefreshing = false, error = null)
                 }
-            }.onFailure { e ->
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                if (generation != loadGeneration) return@launch
                 _state.update { it.copy(isLoading = false, isRefreshing = false, error = e) }
             }
         }
+    }
+
+    private companion object {
+        const val DEBOUNCE_MS = 300L
     }
 }

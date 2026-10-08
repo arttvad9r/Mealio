@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Restaurant
 import com.arttvad9r.mealio.R
+import com.arttvad9r.mealio.domain.format.QuantityFormatter
 import com.arttvad9r.mealio.ui.theme.IconSize
 import com.arttvad9r.mealio.ui.theme.Radius
 import com.arttvad9r.mealio.ui.theme.Space
@@ -145,7 +146,7 @@ fun ErrorState(
 /** Compact "[-] N [+]"-style serving stepper. */
 @Composable
 fun ServingStepper(
-    servings: Int,
+    servings: Double,
     onDecrease: () -> Unit,
     onIncrease: () -> Unit,
     decreaseEnabled: Boolean,
@@ -169,7 +170,7 @@ fun ServingStepper(
             )
         }
         Text(
-            text = servings.toString(),
+            text = QuantityFormatter.formatNumber(servings),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.width(40.dp),

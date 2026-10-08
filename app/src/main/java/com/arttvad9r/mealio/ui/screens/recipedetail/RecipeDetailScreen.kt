@@ -94,7 +94,7 @@ fun RecipeDetailScreen(
         state.recipe != null -> {
             val recipe = state.recipe
             val scaled = remember(state.recipe, state.servings, state.baseServings) {
-                val factor = state.baseServings?.let { state.servings.toDouble() / it.toDouble() } ?: 1.0
+                val factor = state.baseServings?.takeIf { it > 0.0 }?.let { state.servings / it } ?: 1.0
                 recipe.ingredients.map { it.scale(factor) }
             }
             val imageUrl = MealieImageUrl.recipeImage(serverUrl, recipe.uuid, recipe.imageKey)
@@ -182,7 +182,7 @@ fun RecipeDetailScreen(
                                             servings = state.servings,
                                             onDecrease = onServingsDecrease,
                                             onIncrease = onServingsIncrease,
-                                            decreaseEnabled = state.servings > 1,
+                                            decreaseEnabled = state.servings > 1.0,
                                         )
                                     }
                                 }

@@ -17,8 +17,10 @@ data class RecipeDetailUiState(
     val recipe: RecipeDetail? = null,
     val isLoading: Boolean = true,
     val error: Throwable? = null,
-    val servings: Int = 1,
-    val baseServings: Int? = null,
+    /** Currently selected serving count; kept as Double because Mealie stores servings as a float. */
+    val servings: Double = 1.0,
+    /** The recipe's own serving count, used as the scaling base; null when the recipe has none. */
+    val baseServings: Double? = null,
     val tab: RecipeTab = RecipeTab.INGREDIENTS,
 )
 
@@ -47,17 +49,16 @@ class RecipeDetailViewModel(
         viewModelScope.launch {
             runCatching { repository.recipe(slug) }
                 .onSuccess { recipe ->
-                    val base = recipe.servings
-                        ?.takeIf { it > 0.0 }
-                        ?.let { kotlin.math.round(it).toInt() }
-                        ?.takeIf { it > 0 }
+                    // Mealie serves servings as a float; keep the original value
+                    // so a fractional yield (e.g. 2.5) is not silently rounded.
+                    val base = recipe.servings?.takeIf { it > 0.0 }
                     _state.update {
                         it.copy(
                             recipe = recipe,
                             isLoading = false,
                             error = null,
                             baseServings = base,
-                            servings = base ?: 1,
+                            servings = base ?: 1.0,
                         )
                     }
                 }
@@ -71,12 +72,12 @@ class RecipeDetailViewModel(
 
     fun decreaseServings() {
         if (_state.value.baseServings == null) return
-        _state.update { it.copy(servings = (it.servings - 1).coerceAtLeast(1)) }
+        _state.update { it.copy(servings = (it.servings - 1.0).coerceAtLeast(1.0)) }
     }
 
     fun increaseServings() {
         if (_state.value.baseServings == null) return
-        _state.update { it.copy(servings = it.servings + 1) }
+        _state.update { it.copy(servings = it.servings + 1.0) }
     }
 }
 
