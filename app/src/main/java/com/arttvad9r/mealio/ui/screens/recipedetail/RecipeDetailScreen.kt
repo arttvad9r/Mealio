@@ -20,15 +20,9 @@ import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -44,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -84,13 +77,7 @@ fun RecipeDetailScreen(
 ) {
     when {
         state.isLoading -> CenteredLoading(modifier)
-
-        state.error != null -> ErrorState(
-            message = errorMessage(state.error),
-            onRetry = onRetry,
-            modifier = modifier,
-        )
-
+        state.error != null -> ErrorState(message = errorMessage(state.error), onRetry = onRetry, modifier = modifier)
         state.recipe != null -> {
             val recipe = state.recipe
             val scaled = remember(state.recipe, state.servings, state.baseServings) {
@@ -110,166 +97,69 @@ fun RecipeDetailScreen(
                             model = imageUrl,
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
-                                .padding(horizontal = Space.screen)
-                                .clip(Radius.card),
+                            modifier = Modifier.fillMaxWidth().height(220.dp).padding(horizontal = Space.screen).clip(Radius.card),
                         )
                     }
                 }
-
                 item {
                     Column(modifier = Modifier.padding(horizontal = Space.screen)) {
-                        Text(
-                            text = recipe.name,
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = MaterialTheme.colorScheme.onBackground,
-                        )
+                        Text(recipe.name, style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onBackground)
                         if (recipe.categories.isNotEmpty() || recipe.tags.isNotEmpty()) {
                             Spacer(Modifier.height(Space.xs))
-                            Text(
-                                text = (recipe.categories + recipe.tags).joinToString(" · "),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary,
-                            )
+                            Text((recipe.categories + recipe.tags).joinToString(" · "), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         }
                         recipe.totalTimeIso?.let { DurationFormatter.format(it, LocalContext.current) }?.let { human ->
                             Spacer(Modifier.height(Space.xs))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(Space.xs),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(
-                                    Icons.Filled.Schedule,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.size(IconSize.caption),
-                                )
-                                Text(
-                                    text = stringResource(R.string.recipe_time_label, human),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                            Row(horizontalArrangement = Arrangement.spacedBy(Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Filled.Schedule, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(IconSize.caption))
+                                Text(stringResource(R.string.recipe_time_label, human), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
                 }
-
                 if (recipe.servings != null || recipe.nutrition.hasAny) {
                     item {
-                        MealioCard(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = Space.screen),
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(Space.l),
-                                verticalArrangement = Arrangement.spacedBy(Space.m),
-                            ) {
+                        MealioCard(modifier = Modifier.fillMaxWidth().padding(horizontal = Space.screen)) {
+                            Column(modifier = Modifier.padding(Space.l), verticalArrangement = Arrangement.spacedBy(Space.l)) {
                                 if (state.baseServings != null) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Text(
-                                            text = stringResource(R.string.recipe_servings_title),
-                                            style = MaterialTheme.typography.titleMedium,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                        )
-                                        ServingStepper(
-                                            servings = state.servings,
-                                            onDecrease = onServingsDecrease,
-                                            onIncrease = onServingsIncrease,
-                                            decreaseEnabled = state.servings > 1.0,
-                                        )
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                        Text(stringResource(R.string.recipe_servings_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                                        ServingStepper(state.servings, onServingsDecrease, onServingsIncrease, state.servings > 1.0)
                                     }
                                 }
-                                if (recipe.nutrition.hasAny) {
-                                    NutritionSection(recipe.nutrition)
-                                }
+                                if (recipe.nutrition.hasAny) NutritionSection(recipe.nutrition)
                             }
                         }
                     }
                 }
-
                 item {
                     FilledTonalButton(
-                        onClick = {
-                            if (shoppingLists.isNotEmpty()) onAddToList(shoppingLists.first().id)
-                        },
+                        onClick = { if (shoppingLists.isNotEmpty()) onAddToList(shoppingLists.first().id) },
                         enabled = recipe.uuid != null && shoppingLists.isNotEmpty() && canAddToList,
                         shape = Radius.field,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = Space.screen),
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.screen),
                     ) {
-                        Icon(
-                            Icons.Filled.PlaylistAdd,
-                            contentDescription = null,
-                            modifier = Modifier.size(IconSize.action),
-                        )
+                        Icon(Icons.Filled.PlaylistAdd, null, modifier = Modifier.size(IconSize.action))
                         Spacer(Modifier.width(Space.s))
                         Text(stringResource(R.string.recipe_add_to_list))
                     }
                 }
-
                 item {
                     TabRow(
                         selectedTabIndex = state.tab.ordinal,
                         containerColor = MaterialTheme.colorScheme.background,
+                        modifier = Modifier.padding(horizontal = Space.screen),
                     ) {
-                        Tab(
-                            selected = state.tab == RecipeTab.INGREDIENTS,
-                            onClick = { onTabSelected(RecipeTab.INGREDIENTS) },
-                            text = { Text(stringResource(R.string.recipe_tab_ingredients)) },
-                        )
-                        Tab(
-                            selected = state.tab == RecipeTab.INSTRUCTIONS,
-                            onClick = { onTabSelected(RecipeTab.INSTRUCTIONS) },
-                            text = { Text(stringResource(R.string.recipe_tab_instructions)) },
-                        )
+                        Tab(selected = state.tab == RecipeTab.INGREDIENTS, onClick = { onTabSelected(RecipeTab.INGREDIENTS) }, text = { Text(stringResource(R.string.recipe_tab_ingredients)) })
+                        Tab(selected = state.tab == RecipeTab.INSTRUCTIONS, onClick = { onTabSelected(RecipeTab.INSTRUCTIONS) }, text = { Text(stringResource(R.string.recipe_tab_instructions)) })
                     }
                 }
-
                 if (state.tab == RecipeTab.INGREDIENTS) {
-                    if (scaled.isEmpty()) {
-                        item {
-                            Text(
-                                text = stringResource(R.string.recipe_no_ingredients),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = Space.screen),
-                            )
-                        }
-                    } else {
-                        itemsIndexed(scaled) { _, ing ->
-                            IngredientRow(
-                                ingredient = ing,
-                                modifier = Modifier.padding(horizontal = Space.screen),
-                            )
-                        }
-                    }
+                    if (scaled.isEmpty()) item { Text(stringResource(R.string.recipe_no_ingredients), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Space.screen)) }
+                    else itemsIndexed(scaled) { _, ing -> IngredientRow(ing, Modifier.padding(horizontal = Space.screen)) }
                 } else {
-                    if (recipe.instructions.isEmpty()) {
-                        item {
-                            Text(
-                                text = stringResource(R.string.recipe_no_instructions),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(horizontal = Space.screen),
-                            )
-                        }
-                    } else {
-                        itemsIndexed(recipe.instructions) { index, step ->
-                            InstructionRow(
-                                index = index + 1,
-                                text = step,
-                                modifier = Modifier.padding(horizontal = Space.screen),
-                            )
-                        }
-                    }
+                    if (recipe.instructions.isEmpty()) item { Text(stringResource(R.string.recipe_no_instructions), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = Space.screen)) }
+                    else itemsIndexed(recipe.instructions) { index, step -> InstructionRow(index + 1, step, Modifier.padding(horizontal = Space.screen)) }
                 }
             }
         }
@@ -277,129 +167,44 @@ fun RecipeDetailScreen(
 
     if (addToListMessage != null) {
         var showDialog by remember { mutableStateOf(true) }
-        if (showDialog) {
-            AlertDialog(
-                onDismissRequest = {
-                    showDialog = false
-                    onDismissAddToListMessage()
-                },
-                shape = Radius.card,
-                title = {
-                    Text(
-                        stringResource(
-                            if (addToListIsError) R.string.recipe_add_to_list_error_title
-                            else R.string.recipe_add_to_list_done_title,
-                        ),
-                    )
-                },
-                text = { Text(addToListMessage) },
-                confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showDialog = false
-                            onDismissAddToListMessage()
-                        },
-                    ) {
-                        Text(stringResource(R.string.common_ok))
-                    }
-                },
-            )
-        }
+        if (showDialog) AlertDialog(
+            onDismissRequest = { showDialog = false; onDismissAddToListMessage() },
+            shape = Radius.card,
+            title = { Text(stringResource(if (addToListIsError) R.string.recipe_add_to_list_error_title else R.string.recipe_add_to_list_done_title)) },
+            text = { Text(addToListMessage) },
+            confirmButton = { TextButton(onClick = { showDialog = false; onDismissAddToListMessage() }) { Text(stringResource(R.string.common_ok)) } },
+        )
     }
 }
 
 @Composable
 private fun NutritionSection(nutrition: Nutrition) {
-    Column(verticalArrangement = Arrangement.spacedBy(Space.m)) {
-        Text(
-            text = stringResource(R.string.recipe_nutrition_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            NutritionMetric(
-                stringResource(R.string.nutrition_calories),
-                NutritionFormatter.format(nutrition.calories, NutritionFormatter.Metric.CALORIES, LocalContext.current),
-            )
-            NutritionMetric(
-                stringResource(R.string.nutrition_protein),
-                NutritionFormatter.format(nutrition.protein, NutritionFormatter.Metric.PROTEIN, LocalContext.current),
-            )
-            NutritionMetric(
-                stringResource(R.string.nutrition_fat),
-                NutritionFormatter.format(nutrition.fat, NutritionFormatter.Metric.FAT, LocalContext.current),
-            )
-            NutritionMetric(
-                stringResource(R.string.nutrition_carbs),
-                NutritionFormatter.format(nutrition.carbs, NutritionFormatter.Metric.CARBS, LocalContext.current),
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
+        Text(stringResource(R.string.recipe_nutrition_title), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            NutritionMetric(stringResource(R.string.nutrition_calories), NutritionFormatter.format(nutrition.calories, NutritionFormatter.Metric.CALORIES, LocalContext.current))
+            NutritionMetric(stringResource(R.string.nutrition_protein), NutritionFormatter.format(nutrition.protein, NutritionFormatter.Metric.PROTEIN, LocalContext.current))
+            NutritionMetric(stringResource(R.string.nutrition_fat), NutritionFormatter.format(nutrition.fat, NutritionFormatter.Metric.FAT, LocalContext.current))
+            NutritionMetric(stringResource(R.string.nutrition_carbs), NutritionFormatter.format(nutrition.carbs, NutritionFormatter.Metric.CARBS, LocalContext.current))
         }
     }
 }
 
 @Composable
-private fun IngredientRow(
-    ingredient: ScaledIngredient,
-    modifier: Modifier = Modifier,
-) {
+private fun IngredientRow(ingredient: ScaledIngredient, modifier: Modifier = Modifier) {
     val amount = QuantityFormatter.amount(ingredient.quantity, ingredient.unit, LocalContext.current)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = Space.s),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(
-            text = ingredient.name.ifBlank {
-                ingredient.note ?: stringResource(R.string.recipe_ingredient_unnamed)
-            },
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.weight(1f),
-        )
-        if (amount != null) {
-            Spacer(Modifier.width(Space.m))
-            Text(
-                text = amount,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+    Row(modifier = modifier.fillMaxWidth().padding(vertical = Space.s), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(ingredient.name.ifBlank { ingredient.note ?: stringResource(R.string.recipe_ingredient_unnamed) }, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f))
+        if (amount != null) { Spacer(Modifier.width(Space.m)); Text(amount, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
 @Composable
-private fun InstructionRow(
-    index: Int,
-    text: String,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = Space.s),
-        horizontalArrangement = Arrangement.spacedBy(Space.m),
-    ) {
-        Surface(
-            shape = Radius.field,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(28.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    text = index.toString(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                )
-            }
+private fun InstructionRow(index: Int, text: String, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth().padding(vertical = Space.s), horizontalArrangement = Arrangement.spacedBy(Space.m)) {
+        Surface(shape = Radius.field, color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(28.dp)) {
+            Box(contentAlignment = Alignment.Center) { Text(index.toString(), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer) }
         }
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+        Text(text, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onBackground)
     }
 }
