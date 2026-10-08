@@ -1,10 +1,13 @@
+Русский | [English](README.en.md)
+
 <div align="center">
 
 # Mealio
 
-**A native Android client for self-hosted [Mealie](https://mealie.io).**
+**Нативный Android-клиент для self-hosted [Mealie](https://mealie.io).**
 
-Fast, minimal and designed for everyday meal planning, recipes and shopping.
+Быстрый, минималистичный — для повседневного планирования питания, рецептов и
+списка покупок.
 
 [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
@@ -13,120 +16,128 @@ Fast, minimal and designed for everyday meal planning, recipes and shopping.
 [![Release](https://img.shields.io/github/v/release/arttvad9r/Mealio?display_name=tag&sort=semver)](https://github.com/arttvad9r/Mealio/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-**[Download latest release](https://github.com/arttvad9r/Mealio/releases/latest)** ·
-[All releases](https://github.com/arttvad9r/Mealio/releases)
+**[Скачать последнюю версию](https://github.com/arttvad9r/Mealio/releases/latest)** ·
+[Все релизы](https://github.com/arttvad9r/Mealio/releases)
 
 </div>
 
-Mealio talks directly to **your own Mealie server** over HTTP/JSON — no cloud,
-no account, no middle layer. Your Mealie instance stays the single source of
-truth; the app is just a fast native UI for it.
+Mealio работает напрямую с **вашим сервером Mealie** по HTTP/JSON — без облака,
+без аккаунта, без промежуточного слоя. Источник истины — ваш сервер Mealie;
+приложение — лишь быстрый нативный интерфейс к нему.
 
-> **Mealio requires an existing, running Mealie server.** If you don't have one
-> yet, start at [mealie.io](https://mealie.io) to learn how to self-host it.
+Коротко: рецепты, список покупок и планирование питания на день в простом
+Android-интерфейсе.
 
-> **Language.** Mealio's interface is currently **Russian-first (ru)**. The
-> project, code, docs and this README are in English so other developers can
-> read and contribute; the app UI itself is not translated yet.
+> **Mealio требует собственный запущенный сервер Mealie.** Если его ещё нет,
+> начните с [mealie.io](https://mealie.io) — там рассказано, как поднять его
+> самостоятельно.
+
+> **Язык интерфейса.** Сейчас UI переведён только на русский. Основная
+> документация проекта — на русском (эта страница), английская версия — в
+> [README.en.md](README.en.md). Английский интерфейс приложения планируется
+> для V1.3.
 
 ## Screenshots
 
 <div align="center">
 <table>
   <tr>
-    <td align="center"><img src="docs/screenshots/today.jpg" width="220" alt="Today"></td>
-    <td align="center"><img src="docs/screenshots/recipes.jpg" width="220" alt="Recipes"></td>
-    <td align="center"><img src="docs/screenshots/recipe-detail.jpg" width="220" alt="Recipe detail"></td>
-    <td align="center"><img src="docs/screenshots/shopping.jpg" width="220" alt="Shopping list"></td>
+    <td align="center"><img src="docs/screenshots/today.jpg" width="220" alt="Сегодня"></td>
+    <td align="center"><img src="docs/screenshots/recipes.jpg" width="220" alt="Рецепты"></td>
+    <td align="center"><img src="docs/screenshots/recipe-detail.jpg" width="220" alt="Рецепт"></td>
+    <td align="center"><img src="docs/screenshots/shopping.jpg" width="220" alt="Покупки"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Today</sub></td>
-    <td align="center"><sub>Recipes</sub></td>
-    <td align="center"><sub>Recipe detail</sub></td>
-    <td align="center"><sub>Shopping</sub></td>
+    <td align="center"><sub>Сегодня</sub></td>
+    <td align="center"><sub>Рецепты</sub></td>
+    <td align="center"><sub>Рецепт</sub></td>
+    <td align="center"><sub>Покупки</sub></td>
   </tr>
 </table>
 </div>
 
-<sub>The app UI is currently Russian-only — see [Project status](#project-status).</sub>
+## Возможности
 
-## Features
+- Нативный Android-интерфейс на Jetpack Compose и Material 3
+- Подключение к своему серверу Mealie (URL + long-lived API-токен)
+- Просмотр и поиск рецептов
+- Фильтр рецептов по категориям
+- Карточка рецепта: ингредиенты, шаги и пищевая ценность
+- Масштабирование порций с пересчётом пищевой ценности
+- Списки покупок — просмотр, отметка и снятие отметки
+- Добавление ингредиентов рецепта в список покупок
+- Раздел **Сегодня**: соберите свой день из собственных рецептов
+- Итог по калориям за день и разбивка по Б/Ж/У
+- Слоты приёмов пищи (завтрак, основное, гарнир, овощи, перекус, дополнение) с настройкой порций
+- Светлая / тёмная / системная тема
+- Безопасное хранение API-токена в Android Keystore (AES/GCM)
+- Расчёт на использование self-hosted дома: LAN и Tailscale
 
-- Native Android UI with Jetpack Compose and Material 3
-- Connect to your own Mealie server (URL + long-lived API token)
-- Browse and search recipes
-- Filter recipes by category
-- Recipe detail with ingredients, steps and nutrition
-- Serving scaling with recomputed nutrition
-- Shopping lists — view, check off and uncheck items
-- Add recipe ingredients to a shopping list
-- **Today** dashboard: build your day out of your own recipes
-- Daily calorie total and macro breakdown (protein / fat / carbs)
-- Meal slots (breakfast, main, side, vegetables, snack, extra) with serving adjustment
-- Light / dark / system themes
-- Secure API-token storage using the Android Keystore (AES/GCM)
-- LAN- and Tailscale-friendly self-hosted usage
+Mealio намеренно **не** является трекером калорий и не клоном FatSecret: здесь
+нет отдельной базы продуктов, сканера штрихкодов, ручного ввода еды и
+рекомендаций. Это тонкий клиент к Mealie.
 
-Mealio is intentionally **not** a calorie-tracking app and not a FatSecret
-clone: there is no separate food database, no barcode scanner, no manual food
-entry and no recommendations. It is a thin client for Mealie.
+## Сегодня
 
-## Today
+**Сегодня** — то, что выходит чуть за рамки обычного просмотрщика Mealie: это
+конструктор питания на день, который переиспользует ваши собственные рецепты:
 
-**Today** is the part that goes a little beyond a plain Mealie viewer — it's a
-daily meal builder that reuses your own recipes:
+- Выбор рецептов для **завтрака, основного блюда, гарнира, овощей, перекуса и
+  дополнительного блюда**.
+- Настройка **количества порций** для каждой позиции.
+- **Калории и Б/Ж/У** за день считаются из пищевой ценности, уже хранящейся в
+  ваших рецептах Mealie.
+- Текущий день **хранится локально** на устройстве и переживает перезапуск.
+- День **логически сбрасывается при смене локальной даты** — новый день
+  начинается с чистого листа.
 
-- Pick recipes for **breakfast, main, side, vegetables, snack and extra**.
-- Adjust the **servings** of each item.
-- **Calories and macros** for the day are calculated from the nutrition already
-  stored in your Mealie recipes.
-- The current day is **stored locally** on the device, so it survives restarts.
-- It **resets logically when the local date changes** — a new day starts clean.
-
-## Requirements
+## Требования
 
 - **Android 8.0+** (API 26)
-- A running **Mealie server** with its API reachable from your phone
-- A Mealie **long-lived API token**
+- Запущенный **сервер Mealie**, API которого доступен с телефона
+- **Long-lived API-токен** Mealie
 
-## Installation
+## Установка
 
-1. Download the APK from the [latest release](https://github.com/arttvad9r/Mealio/releases/latest).
-2. Install it on your device (you may need to allow installs from unknown sources).
-3. Open Mealio.
-4. Enter your Mealie server URL.
-5. Enter your long-lived API token.
+1. Скачайте APK из [последнего релиза](https://github.com/arttvad9r/Mealio/releases/latest).
+2. Установите его на устройство (возможно, понадобится разрешить установку из
+   неизвестных источников).
+3. Откройте Mealio.
+4. Введите URL вашего сервера Mealie.
+5. Введите ваш long-lived API-токен.
 
-### Getting an API token
+### Как получить API-токен
 
-In Mealie: **profile → API tokens → create a long-lived token**. Paste it into
-Mealio's connection screen.
+В Mealie: **профиль → API tokens → создать long-lived токен**. Вставьте его на
+экране подключения Mealio.
 
-### Networking
+### Сеть
 
-Mealio works well for reaching a **home Mealie server over a private Tailscale
-network** — no ports exposed to the internet, and the app just talks to the
-server's Tailscale address.
+Mealio хорошо подходит для доступа к **домашнему серверу Mealie через приватную
+сеть Tailscale** — наружу порты не открываются, а приложение просто обращается к
+серверу по его Tailscale-адресу.
 
-> **Security note.** Plain `http://` is acceptable **only inside a trusted,
-> private, already encrypted network** — a home LAN or a **Tailscale** network,
-> where traffic runs inside the encrypted tunnel. For any server reachable from
-> a public or untrusted network, use **`https://`**.
+> **Про безопасность.** Обычный `http://` допустим **только внутри доверенной
+> приватной сети, где трафик уже шифруется** — домашняя LAN или сеть
+> **Tailscale**, где всё идёт внутри шифрованного туннеля. Для сервера,
+> доступного из публичной или недоверенной сети, используйте **`https://`**.
 
-## Project status
+## Статус проекта
 
-Mealio is an **independent community project** and is **not affiliated with or
-endorsed by** the Mealie project.
+Mealio — **независимый community-проект**, он **не связан официально с проектом
+Mealie и не одобрен** его командой.
 
-- **Current state:** a usable personal Android client, under active development.
-- **Primary UI language:** Russian.
+- **Текущее состояние:** рабочий персональный Android-клиент, в активной
+  разработке.
+- **Основной язык интерфейса:** русский (английский запланирован для V1.3).
 
-It is not marketed as production-grade or enterprise-stable software — it's a
-small, focused app that works well for its author's own self-hosted setup.
+Это не production-grade и не enterprise-стабильное ПО — это небольшое
+сфокусированное приложение, которое хорошо работает для собственного
+self-hosted сценария автора.
 
-## Development
+## Разработка
 
-Built with:
+Построено на:
 
 - Kotlin
 - Jetpack Compose
@@ -137,35 +148,38 @@ Built with:
 - Coroutines / Flow
 - Android Keystore
 
-Common commands (Gradle wrapper):
+Основные команды (Gradle wrapper):
 
 ```bash
-./gradlew assembleDebug        # build a debug APK
-./gradlew testDebugUnitTest    # unit tests
+./gradlew assembleDebug        # собрать debug APK
+./gradlew testDebugUnitTest    # юнит-тесты
 ./gradlew lintDebug            # lint
 ```
 
-You need **JDK 17** and the **Android SDK** (platform 36, build-tools 36).
-Notes for contributors, including API quirks and architecture, are in
-[`AGENTS.md`](AGENTS.md); technical decisions are recorded as ADRs in
-[`docs/adr/`](docs/adr/).
+Нужны **JDK 17** и **Android SDK** (platform 36, build-tools 36). Заметки для
+контрибьюторов — об особенностях API и архитектуре — в [`AGENTS.md`](AGENTS.md);
+технические решения зафиксированы как ADR в [`docs/adr/`](docs/adr/).
 
 ## Roadmap
 
-Possible future directions — no timelines promised, and only what actually fits
-the project:
+Ближайшее направление — **V1.3**:
 
-- Improve the Today workflow.
-- Optional English UI / localization.
-- Better recipe imagery and presentation.
-- Additional shopping UX.
-- Broader Mealie API coverage.
+- локализация интерфейса приложения на английский;
+- настраиваемая дневная цель по калориям вместо фиксированных 2300 ккал.
 
-## Contributing
+Возможные дальнейшие направления — без обещаний по срокам, и только то, что
+действительно подходит проекту:
 
-Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
-For security-related reports, see [SECURITY.md](SECURITY.md).
+- улучшение сценария работы с разделом «Сегодня»;
+- улучшение подачи и изображений рецептов;
+- дополнительный UX для списка покупок;
+- более широкое покрытие API Mealie.
 
-## License
+## Участие
 
-MIT — see [LICENSE](LICENSE).
+Issues и pull requests приветствуются — см. [CONTRIBUTING.md](CONTRIBUTING.md)
+(на английском). Для сообщений о безопасности — [SECURITY.md](SECURITY.md).
+
+## Лицензия
+
+MIT — см. [LICENSE](LICENSE).
