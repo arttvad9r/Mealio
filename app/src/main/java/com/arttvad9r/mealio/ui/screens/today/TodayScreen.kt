@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -54,7 +55,6 @@ import com.arttvad9r.mealio.ui.components.CenteredLoading
 import com.arttvad9r.mealio.ui.components.CompactSearchField
 import com.arttvad9r.mealio.ui.components.ErrorState
 import com.arttvad9r.mealio.ui.components.MealioCard
-import com.arttvad9r.mealio.ui.components.ServingStepper
 import com.arttvad9r.mealio.ui.errorMessage
 import com.arttvad9r.mealio.ui.theme.IconSize
 import com.arttvad9r.mealio.ui.theme.Radius
@@ -228,6 +228,10 @@ private fun DailySummaryCard(totals: DailyNutrition) {
                     .height(6.dp),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                // Material3 draws a primary-coloured stop dot at the end of the
+                // track by default (visible as a stray green dot at 0/partial
+                // progress). Suppress it: a plain determinate bar only.
+                drawStopIndicator = {},
             )
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -301,6 +305,22 @@ private fun SlotCard(
                         )
                     }
                 }
+
+                when {
+                    detail != null -> CompactServingStepper(
+                        servings = selection.servings,
+                        onDecrease = onDecrease,
+                        onIncrease = onIncrease,
+                        decreaseEnabled = selection.servings > 1.0,
+                    )
+
+                    ui.error == null -> CircularProgressIndicator(
+                        modifier = Modifier.size(18.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
                 IconButton(onClick = onRemove) {
                     Icon(
                         Icons.Filled.Close,
@@ -311,15 +331,10 @@ private fun SlotCard(
                 }
             }
 
-            when {
-                detail != null -> ServingStepper(
-                    servings = selection.servings,
-                    onDecrease = onDecrease,
-                    onIncrease = onIncrease,
-                    decreaseEnabled = selection.servings > 1.0,
-                )
-
-                ui.error != null -> Row(
+            // Error is the only case that needs a second line: it cannot share
+            // the title row without squeezing the message.
+            if (detail == null && ui.error != null) {
+                Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(Space.s),
                 ) {
@@ -333,21 +348,44 @@ private fun SlotCard(
                         Text(stringResource(R.string.today_slot_retry))
                     }
                 }
-
-                else -> Row(verticalAlignment = Alignment.CenterVertically) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                    Spacer(Modifier.width(Space.s))
-                    Text(
-                        text = selection.slug,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
+        }
+    }
+}
+
+/**
+ * Dense "−  N  +" control for the Today slot card. Plain [IconButton]s: they
+ * keep the 48dp touch target but draw no outlined square, so the filled card
+ * stays far shorter than with the shared outlined stepper.
+ */
+@Composable
+private fun CompactServingStepper(
+    servings: Double,
+    onDecrease: () -> Unit,
+    onIncrease: () -> Unit,
+    decreaseEnabled: Boolean,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onDecrease, enabled = decreaseEnabled) {
+            Icon(
+                Icons.Filled.Remove,
+                contentDescription = stringResource(R.string.recipe_servings_decrease),
+                modifier = Modifier.size(IconSize.action),
+            )
+        }
+        Text(
+            text = QuantityFormatter.formatNumber(servings),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(34.dp),
+        )
+        IconButton(onClick = onIncrease) {
+            Icon(
+                Icons.Filled.Add,
+                contentDescription = stringResource(R.string.recipe_servings_increase),
+                modifier = Modifier.size(IconSize.action),
+            )
         }
     }
 }
