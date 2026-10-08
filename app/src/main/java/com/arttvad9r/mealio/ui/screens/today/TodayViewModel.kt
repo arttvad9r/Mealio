@@ -65,6 +65,9 @@ class TodayViewModel(
         _state.update { it.copy(isLoading = true, loadError = null) }
         viewModelScope.launch {
             val saved = store.read()
+            // A newer load/refresh supersedes this one: never apply (or restore)
+            // an older snapshot's selections, even if this coroutine resumes late.
+            if (generation != loadGeneration) return@launch
             // Merge saved selections into the slot list before the network call
             // so a failed/absent server still shows what was chosen.
             applySelections(saved)
@@ -78,6 +81,7 @@ class TodayViewModel(
                 if (generation != loadGeneration) return@launch
                 _state.update { it.copy(isLoading = false, loadError = e) }
             }
+            if (generation != loadGeneration) return@launch
             // Restore details for whatever is selected (cache hit = no request).
             saved.forEach { ensureDetail(it.slot, it.slug) }
         }
@@ -147,6 +151,10 @@ class TodayViewModel(
      * selection and shows a compact error — it never crashes the screen.
      */
     private fun ensureDetail(slot: TodaySlot, slug: String, force: Boolean = false) {
+        // Any new load for this slot supersedes the previous one — cache hit
+        // included: a still-running request for the old slug must never write
+        // its result over the new selection.
+        slotJobs.remove(slot)?.cancel()
         if (!force) {
             detailCache[slug]?.let { cached ->
                 updateSlot(slot) { it.copy(detail = cached, isLoading = false, error = null) }
@@ -154,19 +162,29 @@ class TodayViewModel(
             }
         }
         updateSlot(slot) { it.copy(isLoading = true, error = null) }
-        slotJobs[slot]?.cancel()
         slotJobs[slot] = viewModelScope.launch {
             try {
                 val detail = repository.recipe(slug)
                 detailCache[slug] = detail
-                updateSlot(slot) { it.copy(detail = detail, isLoading = false, error = null) }
+                applyIfSelected(slot, slug) { it.copy(detail = detail, isLoading = false, error = null) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Throwable) {
                 detailCache.remove(slug)
-                updateSlot(slot) { it.copy(detail = null, isLoading = false, error = e) }
+                applyIfSelected(slot, slug) { it.copy(detail = null, isLoading = false, error = e) }
             }
         }
+    }
+
+    /**
+     * Applies [transform] to [slot] only while its selection still points at
+     * [slug]. A stale response (the user already switched the slot to another
+     * recipe) never touches detail/error/loading of the new selection.
+     */
+    private fun applyIfSelected(slot: TodaySlot, slug: String, transform: (TodaySlotUi) -> TodaySlotUi) {
+        val selected = _state.value.slots.firstOrNull { it.slot == slot }?.selection?.slug
+        if (selected != slug) return
+        updateSlot(slot, transform)
     }
 
     /** Applies [transform] to one slot and recomputes the daily totals. */
