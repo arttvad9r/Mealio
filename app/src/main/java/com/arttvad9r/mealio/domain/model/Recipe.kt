@@ -48,6 +48,17 @@ data class IngredientLine(
     val display: String?,
 )
 
+/**
+ * One instruction step. [title] is the optional heading Mealie keeps on the step
+ * (a section header or step title); [text] is the body and is always non-blank —
+ * empty steps are dropped in the mapper so the UI can assume every step shows
+ * something.
+ */
+data class InstructionStep(
+    val title: String?,
+    val text: String,
+)
+
 data class RecipeDetail(
     val slug: String,
     val uuid: String?,
@@ -58,7 +69,7 @@ data class RecipeDetail(
     val servings: Double?,
     val nutrition: Nutrition,
     val ingredients: List<IngredientLine>,
-    val instructions: List<String>,
+    val instructions: List<InstructionStep>,
     val totalTimeIso: String?,
     val prepTimeIso: String?,
     val description: String?,

@@ -16,10 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -54,7 +56,9 @@ import com.arttvad9r.mealio.data.remote.MealieImageUrl
 import com.arttvad9r.mealio.domain.format.DurationFormatter
 import com.arttvad9r.mealio.domain.format.NutritionFormatter
 import com.arttvad9r.mealio.domain.format.QuantityFormatter
+import com.arttvad9r.mealio.domain.model.InstructionStep
 import com.arttvad9r.mealio.domain.model.Nutrition
+import com.arttvad9r.mealio.domain.model.RecipeDetail
 import com.arttvad9r.mealio.domain.model.ShoppingListSummary
 import com.arttvad9r.mealio.ui.components.CenteredLoading
 import com.arttvad9r.mealio.ui.components.ErrorState
@@ -75,6 +79,7 @@ fun RecipeDetailScreen(
     onServingsDecrease: () -> Unit,
     onServingsIncrease: () -> Unit,
     onTabSelected: (RecipeTab) -> Unit,
+    onCook: (RecipeDetail) -> Unit,
     onRetry: () -> Unit,
     onAddToList: (String) -> Unit,
     addToListMessage: String?,
@@ -215,6 +220,28 @@ fun RecipeDetailScreen(
                     }
                 }
 
+                // Cook Mode needs at least one non-empty step; the mapper already
+                // drops empty ones, so a non-empty list is the whole condition.
+                if (recipe.instructions.isNotEmpty()) {
+                    item {
+                        Button(
+                            onClick = { onCook(recipe) },
+                            shape = Radius.field,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = Space.screen),
+                        ) {
+                            Icon(
+                                Icons.Filled.PlayArrow,
+                                contentDescription = null,
+                                modifier = Modifier.size(IconSize.action),
+                            )
+                            Spacer(Modifier.width(Space.s))
+                            Text(stringResource(R.string.recipe_cook))
+                        }
+                    }
+                }
+
                 item {
                     TabRow(
                         selectedTabIndex = state.tab.ordinal,
@@ -266,7 +293,7 @@ fun RecipeDetailScreen(
                         itemsIndexed(recipe.instructions) { index, step ->
                             InstructionRow(
                                 index = index + 1,
-                                text = step,
+                                step = step,
                                 modifier = Modifier.padding(horizontal = Space.screen),
                             )
                         }
@@ -375,7 +402,7 @@ private fun IngredientRow(
 @Composable
 private fun InstructionRow(
     index: Int,
-    text: String,
+    step: InstructionStep,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -397,10 +424,19 @@ private fun InstructionRow(
                 )
             }
         }
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+            step.title?.let { title ->
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                )
+            }
+            Text(
+                text = step.text,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+        }
     }
 }

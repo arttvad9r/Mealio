@@ -12,6 +12,7 @@ import com.arttvad9r.mealio.data.remote.dto.ShoppingListOutDto
 import com.arttvad9r.mealio.data.remote.dto.ShoppingListSummaryDto
 import com.arttvad9r.mealio.domain.model.IngredientLine
 import com.arttvad9r.mealio.domain.model.IngredientUnit
+import com.arttvad9r.mealio.domain.model.InstructionStep
 import com.arttvad9r.mealio.domain.model.Nutrition
 import com.arttvad9r.mealio.domain.model.RecipeDetail
 import com.arttvad9r.mealio.domain.model.RecipeSummary
@@ -70,10 +71,21 @@ private fun RecipeIngredientDto.toDomain(): IngredientLine = IngredientLine(
 private fun foodFallback(food: IngredientFoodDto): String? =
     food.pluralName?.takeIf { it.isNotBlank() }
 
-private fun RecipeStepDto.toText(): String? =
-    text?.takeIf { it.isNotBlank() }
-        ?: summary?.takeIf { it.isNotBlank() }
-        ?: title?.takeIf { it.isNotBlank() }
+/**
+ * Mealie keeps an optional heading ([title], a section header / step title) and
+ * the step body ([text], sometimes only in [summary]). A step whose body is
+ * absent but that carries a title is shown with the title as its text; a step
+ * with neither is dropped, so the UI never renders an empty step.
+ */
+private fun RecipeStepDto.toStep(): InstructionStep? {
+    val heading = title?.takeIf { it.isNotBlank() }
+    val body = text?.takeIf { it.isNotBlank() } ?: summary?.takeIf { it.isNotBlank() }
+    return when {
+        body != null -> InstructionStep(title = heading, text = body)
+        heading != null -> InstructionStep(title = null, text = heading)
+        else -> null
+    }
+}
 
 fun RecipeDetailDto.toDomain(): RecipeDetail = RecipeDetail(
     slug = slug,
@@ -85,7 +97,7 @@ fun RecipeDetailDto.toDomain(): RecipeDetail = RecipeDetail(
     servings = recipeServings?.takeIf { it > 0 },
     nutrition = nutrition.toDomain(),
     ingredients = recipeIngredient.orEmpty().map { it.toDomain() },
-    instructions = recipeInstructions.orEmpty().mapNotNull { it.toText() },
+    instructions = recipeInstructions.orEmpty().mapNotNull { it.toStep() },
     totalTimeIso = totalTime ?: performTime ?: cookTime,
     prepTimeIso = prepTime,
     description = description?.takeIf { it.isNotBlank() },

@@ -37,11 +37,14 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.arttvad9r.mealio.BuildConfig
 import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.data.AppContainer
+import com.arttvad9r.mealio.domain.cook.CookStep
+import com.arttvad9r.mealio.domain.cook.toCookStep
 import com.arttvad9r.mealio.domain.model.ShoppingListSummary
 import com.arttvad9r.mealio.ui.AppLanguage
 import com.arttvad9r.mealio.ui.errorMessage
 import com.arttvad9r.mealio.ui.screens.ConnectScreen
 import com.arttvad9r.mealio.ui.screens.SettingsScreen
+import com.arttvad9r.mealio.ui.screens.cook.CookModeScreen
 import com.arttvad9r.mealio.ui.screens.recipes.RecipesScreen
 import com.arttvad9r.mealio.ui.screens.recipes.RecipesViewModel
 import com.arttvad9r.mealio.ui.screens.recipedetail.RecipeDetailScreen
@@ -113,10 +116,21 @@ private fun ConnectRoute(container: AppContainer) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AuthedRoot(container: AppContainer) {
-    val context = LocalContext.current
+val context = LocalContext.current
     var tab by rememberSaveable { mutableStateOf(Tab.RECIPES.name) }
     var selectedRecipeSlug by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedListId by rememberSaveable { mutableStateOf<String?>(null) }
+    // Non-null while Cook Mode is open: the recipe steps being cooked.
+    var cookSteps by remember { mutableStateOf<List<CookStep>?>(null) }
+
+    if (cookSteps != null) {
+        CookModeScreen(
+            steps = cookSteps!!,
+            onExit = { cookSteps = null },
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
 
     // Tolerate a state saved by an older build that pointed at a tab which no
     // longer exists (e.g. Today): fall back to Recipes instead of crashing.
@@ -204,6 +218,7 @@ private fun AuthedRoot(container: AppContainer) {
                 serverUrl = serverUrl,
                 shoppingLists = shoppingState.lists,
                 onIngredientsAdded = shoppingViewModel::refresh,
+                onCook = { steps -> cookSteps = steps },
                 modifier = contentModifier,
             )
 
@@ -247,6 +262,7 @@ private fun RecipeDetailRoute(
     serverUrl: String,
     shoppingLists: List<ShoppingListSummary>,
     onIngredientsAdded: () -> Unit,
+    onCook: (List<CookStep>) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -269,6 +285,7 @@ private fun RecipeDetailRoute(
         onServingsDecrease = viewModel::decreaseServings,
         onServingsIncrease = viewModel::increaseServings,
         onTabSelected = viewModel::setTab,
+        onCook = { recipe -> onCook(recipe.instructions.map { it.toCookStep() }) },
         onRetry = viewModel::load,
         onAddToList = { listId ->
             val uuid = state.recipe?.uuid

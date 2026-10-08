@@ -29,6 +29,24 @@ object DurationFormatter {
         }
 
     /**
+     * Renders a timer length (the Cook Mode timer thinks in seconds) as
+     * `1 h 20 min`, `6 min` or `30 s`. Shares the wording resources with [format].
+     */
+    fun formatTimer(totalSeconds: Long, context: Context): String {
+        val res = context.resources
+        val safe = totalSeconds.coerceAtLeast(0)
+        val hours = (safe / 3_600).toInt()
+        val minutes = ((safe % 3_600) / 60).toInt()
+        val seconds = (safe % 60).toInt()
+        return when {
+            hours > 0 && minutes > 0 -> res.getString(R.string.duration_hours_minutes, hours, minutes)
+            hours > 0 -> res.getString(R.string.duration_hours, hours)
+            minutes > 0 -> res.getString(R.string.duration_minutes, minutes)
+            else -> res.getString(R.string.duration_seconds, seconds)
+        }
+    }
+
+    /**
      * Locale-aware core: parses the ISO duration and hands the parts to [render],
      * which supplies the localised wording. Kept public so parsing can be tested
      * without an Android [Context].
