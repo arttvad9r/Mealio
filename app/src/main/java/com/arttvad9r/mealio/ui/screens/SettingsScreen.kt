@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -306,13 +305,9 @@ private fun CalorieTargetDialog(
     val value = DailyTarget.parseInput(text)
     val showError = text.isNotEmpty() && value == null
 
-    // A compact, centre-weighted modal for editing a single number: a plain
-    // Material title, one narrow numeric field with the unit rendered inline,
-    // and a symmetric pair of actions. The field is sized to the value itself
-    // (a 4-5 digit number) instead of stretching across the dialog.
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            modifier = Modifier.widthIn(min = 228.dp, max = 272.dp),
+            modifier = Modifier.width(236.dp),
             shape = Radius.card,
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -321,22 +316,23 @@ private fun CalorieTargetDialog(
             Column(
                 modifier = Modifier.padding(horizontal = Space.l, vertical = Space.m),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Space.s),
+                verticalArrangement = Arrangement.spacedBy(Space.xs),
             ) {
                 Text(
                     text = stringResource(R.string.settings_target_title),
-                    style = MaterialTheme.typography.titleLarge,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
+
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
                         modifier = Modifier
-                            .width(116.dp)
-                            .height(48.dp)
+                            .width(88.dp)
+                            .height(40.dp)
                             .border(
                                 width = 1.dp,
                                 color = if (showError) {
@@ -354,7 +350,7 @@ private fun CalorieTargetDialog(
                             onValueChange = { input -> text = input.filter { it.isDigit() }.take(5) },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            textStyle = MaterialTheme.typography.titleMedium.copy(
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(
                                 textAlign = TextAlign.Center,
                                 color = MaterialTheme.colorScheme.onSurface,
                             ),
@@ -368,10 +364,11 @@ private fun CalorieTargetDialog(
                     Spacer(Modifier.width(Space.s))
                     Text(
                         text = stringResource(R.string.settings_target_unit),
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+
                 if (showError) {
                     Text(
                         text = stringResource(R.string.settings_target_error),
@@ -380,8 +377,9 @@ private fun CalorieTargetDialog(
                         textAlign = TextAlign.Center,
                     )
                 }
+
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(Space.l, Alignment.CenterHorizontally),
+                    horizontalArrangement = Arrangement.spacedBy(Space.s, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = onDismiss) {
