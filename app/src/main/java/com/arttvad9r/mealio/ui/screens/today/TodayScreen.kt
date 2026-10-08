@@ -185,7 +185,7 @@ private fun LazyListScope.slotSection(
             text = header,
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = Space.xs, start = Space.xs),
+            modifier = Modifier.padding(top = Space.xs),
         )
     }
     slots.forEach { slot ->

@@ -28,7 +28,7 @@ object Space {
     val s = 8.dp
     val m = 12.dp
     val l = 16.dp
-    val screen = 14.dp
+    val screen = 16.dp
 }
 
 object IconSize {

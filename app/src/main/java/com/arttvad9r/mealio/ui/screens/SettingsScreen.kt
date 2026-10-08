@@ -314,9 +314,9 @@ private fun CalorieTargetDialog(
             tonalElevation = 0.dp,
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = Space.l, vertical = Space.m),
+                modifier = Modifier.padding(Space.l),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Space.xs),
+                verticalArrangement = Arrangement.spacedBy(Space.s),
             ) {
                 Text(
                     text = stringResource(R.string.settings_target_title),
@@ -325,14 +325,16 @@ private fun CalorieTargetDialog(
                     textAlign = TextAlign.Center,
                 )
 
-                Row(
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(40.dp),
                 ) {
                     Box(
                         modifier = Modifier
                             .width(88.dp)
                             .height(40.dp)
+                            .align(Alignment.Center)
                             .border(
                                 width = 1.dp,
                                 color = if (showError) {
@@ -361,11 +363,11 @@ private fun CalorieTargetDialog(
                             ),
                         )
                     }
-                    Spacer(Modifier.width(Space.s))
                     Text(
                         text = stringResource(R.string.settings_target_unit),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.CenterEnd),
                     )
                 }
 
@@ -379,7 +381,8 @@ private fun CalorieTargetDialog(
                 }
 
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(Space.s, Alignment.CenterHorizontally),
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = onDismiss) {

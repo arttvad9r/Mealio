@@ -186,7 +186,7 @@ private fun RecipeCard(
                         recipe.totalTimeIso?.let { time ->
                             DurationFormatter.format(time, LocalContext.current)?.let { human ->
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(Space.xs),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Icon(
