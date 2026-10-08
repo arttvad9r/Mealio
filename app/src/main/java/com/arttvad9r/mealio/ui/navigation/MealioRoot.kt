@@ -8,6 +8,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Today
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -49,11 +50,14 @@ import com.arttvad9r.mealio.ui.screens.shopping.ShoppingListDetailScreen
 import com.arttvad9r.mealio.ui.screens.shopping.ShoppingListDetailViewModel
 import com.arttvad9r.mealio.ui.screens.shopping.ShoppingListsScreen
 import com.arttvad9r.mealio.ui.screens.shopping.ShoppingViewModel
+import com.arttvad9r.mealio.ui.screens.today.TodayScreen
+import com.arttvad9r.mealio.ui.screens.today.TodayViewModel
 import com.arttvad9r.mealio.data.remote.MealioException
 import com.arttvad9r.mealio.data.remote.ErrorKind
 import kotlinx.coroutines.launch
 
 private enum class Tab(val labelRes: Int, val icon: ImageVector) {
+    TODAY(R.string.nav_today, Icons.Filled.Today),
     RECIPES(R.string.nav_recipes, Icons.Filled.Restaurant),
     SHOPPING(R.string.nav_shopping, Icons.Filled.ShoppingCart),
     SETTINGS(R.string.nav_settings, Icons.Filled.Settings),
@@ -105,7 +109,7 @@ private fun ConnectRoute(container: AppContainer) {
 @Composable
 private fun AuthedRoot(container: AppContainer) {
     val context = LocalContext.current
-    var tab by rememberSaveable { mutableStateOf(Tab.RECIPES.name) }
+    var tab by rememberSaveable { mutableStateOf(Tab.TODAY.name) }
     var selectedRecipeSlug by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedListId by rememberSaveable { mutableStateOf<String?>(null) }
 
@@ -120,6 +124,14 @@ private fun AuthedRoot(container: AppContainer) {
         },
     )
     val recipesState by recipesViewModel.state.collectAsStateWithLifecycle()
+
+    val todayViewModel: TodayViewModel = viewModel(
+        key = "today",
+        factory = viewModelFactory {
+            initializer { TodayViewModel(container.recipeRepository, container.todayStore) }
+        },
+    )
+    val todayState by todayViewModel.state.collectAsStateWithLifecycle()
 
     val shoppingViewModel: ShoppingViewModel = viewModel(
         key = "shopping",
@@ -203,6 +215,18 @@ private fun AuthedRoot(container: AppContainer) {
             )
 
             else -> when (currentTab) {
+                Tab.TODAY -> TodayScreen(
+                    state = todayState,
+                    candidatesFor = todayViewModel::candidates,
+                    onPick = todayViewModel::pick,
+                    onRemove = todayViewModel::remove,
+                    onServingsDecrease = todayViewModel::decreaseServings,
+                    onServingsIncrease = todayViewModel::increaseServings,
+                    onRetryDetail = todayViewModel::retryDetail,
+                    onRetry = todayViewModel::refresh,
+                    modifier = contentModifier,
+                )
+
                 Tab.RECIPES -> RecipesScreen(
                     state = recipesState,
                     serverUrl = serverUrl,

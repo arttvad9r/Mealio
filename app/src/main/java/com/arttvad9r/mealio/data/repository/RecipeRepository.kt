@@ -7,7 +7,16 @@ import com.arttvad9r.mealio.domain.model.RecipeSummary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class RecipeRepository(private val connection: ConnectionRepository) {
+/**
+ * The recipe reads the UI needs. [RecipeRepository] is the real implementation;
+ * tests can substitute a lightweight fake without building the network stack.
+ */
+interface RecipeSource {
+    suspend fun recipes(search: String? = null, categorySlug: String? = null): List<RecipeSummary>
+    suspend fun recipe(slug: String): RecipeDetail
+}
+
+class RecipeRepository(private val connection: ConnectionRepository) : RecipeSource {
 
     private fun api() = connection.api()
 
@@ -16,9 +25,9 @@ class RecipeRepository(private val connection: ConnectionRepository) {
      * `perPage = -1` as "no limit" (repository_generic.py: per_page == -1 ->
      * limit = None), so one request returns all recipes without manual paging.
      */
-    suspend fun recipes(
-        search: String? = null,
-        categorySlug: String? = null,
+    override suspend fun recipes(
+        search: String?,
+        categorySlug: String?,
     ): List<RecipeSummary> = withContext(Dispatchers.IO) {
         val api = api() ?: return@withContext emptyList()
         try {
@@ -48,7 +57,7 @@ class RecipeRepository(private val connection: ConnectionRepository) {
         }
     }
 
-    suspend fun recipe(slug: String): RecipeDetail = withContext(Dispatchers.IO) {
+    override suspend fun recipe(slug: String): RecipeDetail = withContext(Dispatchers.IO) {
         val api = api() ?: throw com.arttvad9r.mealio.data.remote.MealioException(
             com.arttvad9r.mealio.data.remote.ErrorKind.UNKNOWN,
         )

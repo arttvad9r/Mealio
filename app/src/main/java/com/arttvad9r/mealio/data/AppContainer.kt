@@ -3,6 +3,7 @@ package com.arttvad9r.mealio.data
 import android.content.Context
 import com.arttvad9r.mealio.data.local.SecureTokenStorage
 import com.arttvad9r.mealio.data.local.SettingsStore
+import com.arttvad9r.mealio.data.local.TodayStore
 import com.arttvad9r.mealio.data.remote.MealieApiFactory
 import com.arttvad9r.mealio.data.repository.ConnectionRepository
 import com.arttvad9r.mealio.data.repository.RecipeRepository
@@ -30,4 +31,5 @@ class AppContainer(context: Context) {
 
     val recipeRepository = RecipeRepository(connectionRepository)
     val shoppingRepository = ShoppingRepository(connectionRepository)
+    val todayStore = TodayStore(context)
 }

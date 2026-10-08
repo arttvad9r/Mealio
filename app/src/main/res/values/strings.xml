@@ -3,6 +3,7 @@
     <string name="app_name">Mealio</string>
 
     <!-- Navigation -->
+    <string name="nav_today">Сегодня</string>
     <string name="nav_recipes">Рецепты</string>
     <string name="nav_shopping">Покупки</string>
     <string name="nav_settings">Настройки</string>
@@ -51,6 +52,35 @@
     <string name="recipe_add_to_list_done_title">Готово</string>
     <string name="recipe_add_to_list_done_text">Ингредиенты добавлены в список покупок</string>
     <string name="recipe_add_to_list_error_title">Ошибка</string>
+
+    <!-- Today -->
+    <string name="today_title">Сегодня</string>
+    <string name="today_calories_value">%1$s / %2$s ккал</string>
+    <string name="today_macro_short_b">Б %1$s г</string>
+    <string name="today_macro_short_zh">Ж %1$s г</string>
+    <string name="today_macro_short_u">У %1$s г</string>
+    <string name="today_slot_breakfast">Завтрак</string>
+    <string name="today_slot_main">Основное блюдо</string>
+    <string name="today_slot_side">Гарнир</string>
+    <string name="today_slot_vegetables">Овощи</string>
+    <string name="today_slot_snack">Перекус</string>
+    <string name="today_slot_extra">Дополнительно</string>
+    <string name="today_section_breakfast">Завтрак</string>
+    <string name="today_section_main">Основное</string>
+    <string name="today_section_snack">Перекус</string>
+    <string name="today_section_extra">Дополнительно</string>
+    <string name="today_kcal_value">%1$s ккал</string>
+    <string name="today_slot_no_nutrition">Нет данных о калориях</string>
+    <string name="today_pick">Выбрать</string>
+    <string name="today_remove">Убрать блюдо</string>
+    <string name="today_selector_title">Выберите блюдо</string>
+    <string name="today_selector_search_hint">Поиск</string>
+    <string name="today_selector_empty">Нет подходящих рецептов</string>
+    <string name="today_slot_error">Не удалось загрузить рецепт</string>
+    <string name="today_slot_retry">Повторить</string>
+    <string name="today_retry">Повторить</string>
+    <string name="today_empty_title">День пуст</string>
+    <string name="today_empty_subtitle">Выберите блюда — Mealio посчитает калории и БЖУ</string>
 
     <!-- Shopping -->
     <string name="shopping_list_title">Список покупок</string>
