@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -35,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.domain.format.QuantityFormatter
 import com.arttvad9r.mealio.domain.model.ServerAccount
@@ -139,40 +141,32 @@ fun SettingsScreen(
             }
         }
 
+        // A single compact setting row (label + current value) that opens a
+        // small dialog. No section header or second caption — for one setting
+        // the doubled labelling is just visual noise.
         MealioCard(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(Space.l),
-                verticalArrangement = Arrangement.spacedBy(Space.s),
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showTargetDialog = true }
+                    .padding(horizontal = Space.l, vertical = Space.s)
+                    .heightIn(min = 48.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = stringResource(R.string.settings_target_section),
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.settings_target_value,
+                        QuantityFormatter.formatNumber(calorieTarget.toDouble(), LocalContext.current),
+                    ),
+                    style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                // A compact setting row (label + current value) that opens a
-                // small dialog — not an inline field that saves as you type.
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { showTargetDialog = true }
-                        .padding(vertical = Space.s),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = stringResource(R.string.settings_target_label),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = stringResource(
-                            R.string.settings_target_value,
-                            QuantityFormatter.formatNumber(calorieTarget.toDouble(), LocalContext.current),
-                        ),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
             }
         }
 
@@ -292,7 +286,7 @@ private fun CalorieTargetDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         shape = Radius.card,
-        title = { Text(stringResource(R.string.settings_target_label)) },
+        title = { Text(stringResource(R.string.settings_target_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
                 OutlinedTextField(

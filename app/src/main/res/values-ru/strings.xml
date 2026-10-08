@@ -65,8 +65,8 @@
     <string name="settings_server_section">Подключение</string>
     <string name="settings_server_version_value">Mealie %1$s</string>
     <string name="settings_source_code">Исходный код</string>
-    <string name="settings_target_section">Дневная цель калорий</string>
-    <string name="settings_target_label">Цель по калориям (ккал)</string>
+    <string name="settings_target_section">Дневная цель</string>
+    <string name="settings_target_title">Цель по калориям</string>
     <string name="settings_target_value">%1$s ккал</string>
     <string name="settings_target_error">Введите значение от 500 до 10 000</string>
     <string name="settings_target_support">ккал в день</string>

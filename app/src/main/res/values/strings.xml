@@ -65,8 +65,8 @@
     <string name="settings_server_section">Connection</string>
     <string name="settings_server_version_value">Mealie %1$s</string>
     <string name="settings_source_code">Source code</string>
-    <string name="settings_target_section">Daily calorie target</string>
-    <string name="settings_target_label">Calorie target (kcal)</string>
+    <string name="settings_target_section">Daily target</string>
+    <string name="settings_target_title">Calorie target</string>
     <string name="settings_target_value">%1$s kcal</string>
     <string name="settings_target_error">Enter a value between 500 and 10000</string>
     <string name="settings_target_support">kcal per day</string>
