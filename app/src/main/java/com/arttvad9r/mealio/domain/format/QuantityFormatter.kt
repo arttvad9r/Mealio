@@ -107,31 +107,15 @@ object QuantityFormatter {
     }
 
     /**
-     * Formats a number the Russian way: comma decimal separator, trailing zeros
-     * stripped, integers without decimals.
+     * Formats a number the Russian way: comma decimal separator, at most two
+     * decimals (presentation policy), trailing zeros stripped, integers without
+     * decimals. `12.0` -> `12`, `3.4` -> `3,4`, `1.5` -> `1,5`.
      */
     fun formatNumber(value: Double): String {
         if (value.isNaN() || value.isInfinite()) return ""
-        val rounded = kotlin.math.round(value * 100.0) / 100.0
-        val whole = rounded.toLong()
-        val text = if (rounded == whole.toDouble()) {
-            whole.toString()
-        } else {
-            val oneDecimal = kotlin.math.round(value * 10.0) / 10.0
-            if (oneDecimal == kotlin.math.round(oneDecimal)) {
-                formatOneDecimal(oneDecimal)
-            } else {
-                val two = kotlin.math.round(value * 100.0) / 100.0
-                two.toString().trimEnd('0').trimEnd('.')
-            }
-        }
-        return text.replace('.', ',')
-    }
-
-    private fun formatOneDecimal(value: Double): String {
-        val scaled = kotlin.math.round(value * 10.0).toLong()
-        val whole = scaled / 10
-        val frac = scaled % 10
-        return if (frac == 0L) whole.toString() else "$whole,$frac"
+        val rounded = java.math.BigDecimal(value)
+            .setScale(2, java.math.RoundingMode.HALF_UP)
+            .stripTrailingZeros()
+        return rounded.toPlainString().replace('.', ',')
     }
 }

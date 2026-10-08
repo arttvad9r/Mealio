@@ -24,6 +24,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +52,7 @@ import coil.compose.AsyncImage
 import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.data.remote.MealieImageUrl
 import com.arttvad9r.mealio.domain.format.DurationFormatter
+import com.arttvad9r.mealio.domain.format.NutritionFormatter
 import com.arttvad9r.mealio.domain.format.QuantityFormatter
 import com.arttvad9r.mealio.domain.model.Nutrition
 import com.arttvad9r.mealio.domain.model.ShoppingListSummary
@@ -193,27 +195,23 @@ fun RecipeDetailScreen(
                 }
 
                 item {
-                    Row(
+                    FilledTonalButton(
+                        onClick = {
+                            if (shoppingLists.isNotEmpty()) onAddToList(shoppingLists.first().id)
+                        },
+                        enabled = recipe.uuid != null && shoppingLists.isNotEmpty() && canAddToList,
+                        shape = Radius.field,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = Space.screen),
-                        horizontalArrangement = Arrangement.End,
                     ) {
-                        TextButton(
-                            onClick = {
-                                if (shoppingLists.isNotEmpty()) onAddToList(shoppingLists.first().id)
-                            },
-                            enabled = recipe.uuid != null && shoppingLists.isNotEmpty() && canAddToList,
-                            shape = Radius.field,
-                        ) {
-                            Icon(
-                                Icons.Filled.PlaylistAdd,
-                                contentDescription = null,
-                                modifier = Modifier.size(IconSize.action),
-                            )
-                            Spacer(Modifier.width(Space.xs))
-                            Text(stringResource(R.string.recipe_add_to_list))
-                        }
+                        Icon(
+                            Icons.Filled.PlaylistAdd,
+                            contentDescription = null,
+                            modifier = Modifier.size(IconSize.action),
+                        )
+                        Spacer(Modifier.width(Space.s))
+                        Text(stringResource(R.string.recipe_add_to_list))
                     }
                 }
 
@@ -322,10 +320,22 @@ private fun NutritionSection(nutrition: Nutrition) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            NutritionMetric(stringResource(R.string.nutrition_calories), nutrition.calories)
-            NutritionMetric(stringResource(R.string.nutrition_protein), nutrition.protein)
-            NutritionMetric(stringResource(R.string.nutrition_fat), nutrition.fat)
-            NutritionMetric(stringResource(R.string.nutrition_carbs), nutrition.carbs)
+            NutritionMetric(
+                stringResource(R.string.nutrition_calories),
+                NutritionFormatter.format(nutrition.calories, NutritionFormatter.Metric.CALORIES),
+            )
+            NutritionMetric(
+                stringResource(R.string.nutrition_protein),
+                NutritionFormatter.format(nutrition.protein, NutritionFormatter.Metric.PROTEIN),
+            )
+            NutritionMetric(
+                stringResource(R.string.nutrition_fat),
+                NutritionFormatter.format(nutrition.fat, NutritionFormatter.Metric.FAT),
+            )
+            NutritionMetric(
+                stringResource(R.string.nutrition_carbs),
+                NutritionFormatter.format(nutrition.carbs, NutritionFormatter.Metric.CARBS),
+            )
         }
     }
 }

@@ -19,13 +19,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -46,6 +44,7 @@ import com.arttvad9r.mealio.ui.components.EmptyState
 import com.arttvad9r.mealio.ui.components.ErrorState
 import com.arttvad9r.mealio.ui.components.MealioCard
 import com.arttvad9r.mealio.ui.components.CenteredLoading
+import com.arttvad9r.mealio.ui.components.CompactSearchField
 import com.arttvad9r.mealio.ui.errorMessage
 import com.arttvad9r.mealio.ui.theme.IconSize
 import com.arttvad9r.mealio.ui.theme.Radius
@@ -63,18 +62,13 @@ fun RecipesScreen(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
-        OutlinedTextField(
+        CompactSearchField(
             value = state.query,
             onValueChange = onQueryChange,
+            placeholder = stringResource(R.string.recipes_search_hint),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Space.screen, vertical = Space.s),
-            placeholder = { Text(stringResource(R.string.recipes_search_hint)) },
-            leadingIcon = {
-                Icon(Icons.Filled.Search, contentDescription = null, modifier = Modifier.size(IconSize.action))
-            },
-            singleLine = true,
-            shape = Radius.field,
+                .padding(start = Space.screen, end = Space.screen, top = Space.s, bottom = Space.xs),
         )
 
         if (state.categories.isNotEmpty()) {

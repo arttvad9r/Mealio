@@ -28,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.arttvad9r.mealio.R
@@ -215,11 +216,14 @@ private fun ShoppingItemRow(
             }
             val amount = QuantityFormatter.amount(item.quantity, item.unit)
             if (amount != null) {
-                Spacer(Modifier.width(Space.xs))
+                Spacer(Modifier.width(Space.s))
                 Text(
                     text = amount,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.End,
                 )
             }
         }

@@ -28,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
 import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.domain.model.ServerAccount
 import com.arttvad9r.mealio.ui.components.MealioCard
@@ -58,38 +57,36 @@ fun SettingsScreen(
         MealioCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(Space.l),
-                verticalArrangement = Arrangement.spacedBy(Space.m),
+                verticalArrangement = Arrangement.spacedBy(Space.xs),
             ) {
                 Text(
                     text = stringResource(R.string.settings_server_section),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                InfoRow(stringResource(R.string.settings_server_url), account?.serverUrl)
-                InfoRow(
-                    stringResource(R.string.settings_server_user),
+
+                val identity = listOfNotNull(
                     account?.fullName?.takeIf { it.isNotBlank() } ?: account?.username,
-                )
-                InfoRow(
-                    stringResource(R.string.settings_server_household),
-                    account?.household,
-                )
-                InfoRow(
-                    stringResource(R.string.settings_server_version),
-                    account?.mealieVersion,
-                )
+                    account?.household?.takeIf { it.isNotBlank() },
+                ).joinToString(" · ")
+
+                InfoValue(account?.serverUrl)
+                if (identity.isNotBlank()) InfoValue(identity)
+                account?.mealieVersion?.takeIf { it.isNotBlank() }?.let {
+                    InfoValue(stringResource(R.string.settings_server_version_value, it))
+                }
             }
         }
 
         MealioCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(Space.l),
-                verticalArrangement = Arrangement.spacedBy(Space.m),
+                verticalArrangement = Arrangement.spacedBy(Space.s),
             ) {
                 Text(
                     text = stringResource(R.string.settings_theme_section),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.s)) {
                     ThemeMode.entries.forEach { mode ->
@@ -107,12 +104,12 @@ fun SettingsScreen(
         MealioCard(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier.padding(Space.l),
-                verticalArrangement = Arrangement.spacedBy(Space.m),
+                verticalArrangement = Arrangement.spacedBy(Space.s),
             ) {
                 Text(
                     text = stringResource(R.string.settings_account_section),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedButton(
                     onClick = { showConfirm = true },
@@ -198,21 +195,14 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun InfoRow(label: String, value: String?) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = value?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_value_dash),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
+private fun InfoValue(value: String?) {
+    Text(
+        text = value?.takeIf { it.isNotBlank() } ?: stringResource(R.string.common_value_dash),
+        style = MaterialTheme.typography.bodyLarge,
+        color = MaterialTheme.colorScheme.onSurface,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 @Composable

@@ -145,7 +145,7 @@ private fun AuthedRoot(container: AppContainer) {
                         text = when {
                             selectedRecipeSlug != null -> stringResource(R.string.recipe_title)
                             selectedListId != null -> stringResource(R.string.shopping_list_title)
-                            else -> stringResource(R.string.app_name)
+                            else -> stringResource(currentTab.labelRes)
                         },
                     )
                 },

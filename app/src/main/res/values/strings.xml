@@ -63,10 +63,7 @@
 
     <!-- Settings -->
     <string name="settings_server_section">Подключение</string>
-    <string name="settings_server_url">Адрес сервера</string>
-    <string name="settings_server_user">Пользователь</string>
-    <string name="settings_server_household">Домохозяйство</string>
-    <string name="settings_server_version">Версия Mealie</string>
+    <string name="settings_server_version_value">Mealie %1$s</string>
     <string name="settings_theme_section">Оформление</string>
     <string name="settings_theme_system">Системная</string>
     <string name="settings_theme_light">Светлая</string>
