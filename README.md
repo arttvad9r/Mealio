@@ -9,7 +9,7 @@ Fast, minimal and designed for everyday meal planning, recipes and shopping.
 [![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
 [![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
-[![CI](https://github.com/arttvad9r/Mealio/actions/workflows/android.yml/badge.svg)](https://github.com/arttvad9r/Mealio/actions/workflows/android.yml)
+[![CI](https://github.com/arttvad9r/Mealio/actions/workflows/android-ci.yml/badge.svg)](https://github.com/arttvad9r/Mealio/actions/workflows/android-ci.yml)
 [![Release](https://img.shields.io/github/v/release/arttvad9r/Mealio?display_name=tag&sort=semver)](https://github.com/arttvad9r/Mealio/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -83,6 +83,18 @@ Mealio is intentionally **not** a calorie-tracking app and not a FatSecret
 clone: there is no separate food database, no barcode scanner, no manual food
 entry and no recommendations. It is a thin client for Mealie.
 
+## Today
+
+**Today** is the part that goes a little beyond a plain Mealie viewer — it's a
+daily meal builder that reuses your own recipes:
+
+- Pick recipes for **breakfast, main, side, vegetables, snack and extra**.
+- Adjust the **servings** of each item.
+- **Calories and macros** for the day are calculated from the nutrition already
+  stored in your Mealie recipes.
+- The current day is **stored locally** on the device, so it survives restarts.
+- It **resets logically when the local date changes** — a new day starts clean.
+
 ## Requirements
 
 - **Android 8.0+** (API 26)
@@ -102,53 +114,69 @@ entry and no recommendations. It is a thin client for Mealie.
 In Mealie: **profile → API tokens → create a long-lived token**. Paste it into
 Mealio's connection screen.
 
-> **Cleartext HTTP.** Mealio supports plain `http://` for self-hosted servers on
-> a home LAN or over Tailscale. With `http://` the API token and data travel
-> without TLS, so that mode is only safe on a trusted network. For Tailscale it
-> is fine: traffic runs inside the encrypted Tailscale tunnel. For a server
-> exposed to the open internet, use `https://`.
+### Networking
 
-## Building from source
+Mealio works well for reaching a **home Mealie server over a private Tailscale
+network** — no ports exposed to the internet, and the app just talks to the
+server's Tailscale address.
 
-You need **JDK 17** and the **Android SDK** (platform 36, build-tools 36).
+> **Security note.** Plain `http://` is acceptable **only inside a trusted,
+> private, already encrypted network** — a home LAN or a **Tailscale** network,
+> where traffic runs inside the encrypted tunnel. For any server reachable from
+> a public or untrusted network, use **`https://`**.
+
+## Project status
+
+Mealio is an **independent community project** and is **not affiliated with or
+endorsed by** the Mealie project.
+
+- **Current state:** a usable personal Android client, under active development.
+- **Primary UI language:** Russian.
+
+It is not marketed as production-grade or enterprise-stable software — it's a
+small, focused app that works well for its author's own self-hosted setup.
+
+## Development
+
+Built with:
+
+- Kotlin
+- Jetpack Compose
+- Material 3
+- Retrofit / OkHttp
+- Kotlin Serialization
+- Coil
+- Coroutines / Flow
+- Android Keystore
+
+Common commands (Gradle wrapper):
 
 ```bash
-export JAVA_HOME=/path/to/jdk17
-export ANDROID_HOME=/path/to/android-sdk
-
-./gradlew :app:assembleDebug        # debug APK
-./gradlew :app:assembleRelease      # release APK (R8 + resource shrinking)
-./gradlew :app:testDebugUnitTest    # unit tests
-./gradlew :app:lintDebug            # lint
+./gradlew assembleDebug        # build a debug APK
+./gradlew testDebugUnitTest    # unit tests
+./gradlew lintDebug            # lint
 ```
 
-Release builds are signed with the key described in `keystore.properties`
-(kept outside the repository). Without that file — a fresh clone or CI — the
-release build is left **unsigned** rather than being signed with the debug key.
-Debug builds are always signed with the standard debug key.
+You need **JDK 17** and the **Android SDK** (platform 36, build-tools 36).
+Notes for contributors, including API quirks and architecture, are in
+[`AGENTS.md`](AGENTS.md); technical decisions are recorded as ADRs in
+[`docs/adr/`](docs/adr/).
 
-## Tech stack
+## Roadmap
 
-- **Kotlin** + **Jetpack Compose** + **Material 3**
-- Kotlin Coroutines / Flow, ViewModel
-- **Retrofit** + **OkHttp** + kotlinx.serialization
-- Coil (recipe images)
-- Android Keystore (AES/GCM) for the API token
-- Gradle Kotlin DSL
+Possible future directions — no timelines promised, and only what actually fits
+the project:
 
-## Status
-
-**v1.2** is the current stable release: connection, the **Today** screen (daily
-meal builder from your own recipes with calorie/macro totals), recipe list and
-detail, serving scaling, shopping lists, adding ingredients to a list, settings
-and themes. Unit tests and lint are green.
-
-Plans live in [`docs/ROADMAP.md`](docs/ROADMAP.md); technical decisions are
-recorded in [`docs/adr/`](docs/adr/).
+- Improve the Today workflow.
+- Optional English UI / localization.
+- Better recipe imagery and presentation.
+- Additional shopping UX.
+- Broader Mealie API coverage.
 
 ## Contributing
 
 Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+For security-related reports, see [SECURITY.md](SECURITY.md).
 
 ## License
 

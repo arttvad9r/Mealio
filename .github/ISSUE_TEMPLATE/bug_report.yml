@@ -1,0 +1,75 @@
+name: Bug report
+description: Something in Mealio doesn't work as expected.
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. **Please do NOT paste your Mealie API token or
+        any other secret** (keystore passwords, `.env` contents, etc.) — redact
+        them from logs and screenshots.
+  - type: input
+    id: mealio_version
+    attributes:
+      label: Mealio version
+      description: Shown in Settings, or the release tag you installed (e.g. v1.2).
+      placeholder: v1.2
+    validations:
+      required: true
+  - type: input
+    id: android_version
+    attributes:
+      label: Android version
+      placeholder: e.g. Android 14
+    validations:
+      required: true
+  - type: input
+    id: mealie_version
+    attributes:
+      label: Mealie version
+      description: From your Mealie server (About / settings).
+      placeholder: e.g. v3.28.0
+    validations:
+      required: true
+  - type: dropdown
+    id: connection_type
+    attributes:
+      label: Server connection type
+      options:
+        - LAN (http)
+        - LAN (https)
+        - Tailscale
+        - Public HTTPS
+        - Other (describe below)
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open …
+        2. Tap …
+        3. See …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or logs (optional)
+      description: Drag images here. Redact any token or personal data first.
+    validations:
+      required: false
