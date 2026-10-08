@@ -1,85 +1,155 @@
+<div align="center">
+
 # Mealio
 
-Mealio — нативный Android-клиент для self-hosted сервера
-[Mealie](https://mealie.io) (рецепты, ингредиенты и списки покупок).
+**A native Android client for self-hosted [Mealie](https://mealie.io).**
 
-Официальный веб-интерфейс Mealie неудобен на телефоне, а сторонние клиенты
-тянут за собой лишние слои. Mealio — тонкий нативный клиент: работает напрямую
-с вашим сервером Mealie по HTTP/JSON, без прослойки и без облака. Сервер
-остаётся источником истины, приложение — только UI.
+Fast, minimal and designed for everyday meal planning, recipes and shopping.
 
-## Стек
+[![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)](https://developer.android.com)
+[![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7F52FF?logo=kotlin&logoColor=white)](https://kotlinlang.org)
+[![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+[![CI](https://github.com/arttvad9r/Mealio/actions/workflows/android.yml/badge.svg)](https://github.com/arttvad9r/Mealio/actions/workflows/android.yml)
+[![Release](https://img.shields.io/github/v/release/arttvad9r/Mealio?display_name=tag&sort=semver)](https://github.com/arttvad9r/Mealio/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-- **Kotlin** + **Jetpack Compose** + **Material 3**
-- Kotlin Coroutines / Flow, ViewModel
-- **Retrofit** + **OkHttp** + kotlinx.serialization
-- Coil (загрузка изображений рецептов)
-- Android Keystore (AES/GCM) для хранения API-токена
-- Gradle Kotlin DSL
+**[Download latest release](https://github.com/arttvad9r/Mealio/releases/latest)** ·
+[All releases](https://github.com/arttvad9r/Mealio/releases)
 
-## Возможности текущей версии
+</div>
 
-- Подключение к серверу по **URL + long-lived API-токену** с валидацией и
-  выводом информации о пользователе и сервере.
-- Список рецептов с поиском и фильтром по категориям.
-- Карточка рецепта: ингредиенты, шаги, пищевая ценность, масштабирование
-  порций.
-- Списки покупок: просмотр, отметка купленного, снятие отметки.
-- Добавление ингредиентов рецепта в список покупок.
-- Русский интерфейс, светлая и тёмная темы.
-- Безопасное хранение токена в Android Keystore; данные исключены из
-  cloud-backup и device-transfer.
+Mealio talks directly to **your own Mealie server** over HTTP/JSON — no cloud,
+no account, no middle layer. Your Mealie instance stays the single source of
+truth; the app is just a fast native UI for it.
 
-## Требования
+> **Mealio requires an existing, running Mealie server.** If you don't have one
+> yet, start at [mealie.io](https://mealie.io) to learn how to self-host it.
 
-- Android 8.0+ (API 26)
-- Работающий сервер Mealie с включённым API
-- Для сборки: JDK 17 и Android SDK (build-tools, platform 36)
+> **Language.** Mealio's interface is currently **Russian-first (ru)**. The
+> project, code, docs and this README are in English so other developers can
+> read and contribute; the app UI itself is not translated yet.
 
-## Подключение
+## Screenshots
 
-1. В Mealie создайте долгоживущий API-токен: **профиль → API-токены**.
-2. Откройте Mealio, введите адрес сервера (например
-   `http://192.168.1.10:9925` или `https://mealie.example.com`) и вставьте
-   токен.
-3. Приложение проверит соединение и покажет рецепты и списки покупок.
+<!-- Real V1.2 screenshots are not published yet. Add them under
+     docs/screenshots/ and uncomment the table below; the layout is already
+     prepared (3–4 phones per row, clickable, GitHub-safe). -->
 
-Токен шифруется ключом Android Keystore и никогда не хранится в открытом виде.
+```
+docs/screenshots/
+├── today.png          Today with a filled day
+├── recipes.png        Recipes list
+├── recipe-detail.png  Recipe detail
+└── shopping.png       Shopping list
+```
 
-> **Cleartext HTTP.** Mealio поддерживает обычный `http://` для self-hosted
-> серверов в домашней сети или через Tailscale. При `http://` API-токен и
-> данные идут без TLS-шифрования, поэтому такой режим безопасен только в
-> пределах доверенной сети. Для Tailscale это допустимо: трафик идёт внутри
-> зашифрованного туннеля Tailscale. Для сервера, доступного из открытой сети,
-> используйте `https://`.
+<!--
+<div align="center">
+<table>
+  <tr>
+    <td align="center"><img src="docs/screenshots/today.png" width="220" alt="Today"></td>
+    <td align="center"><img src="docs/screenshots/recipes.png" width="220" alt="Recipes"></td>
+    <td align="center"><img src="docs/screenshots/recipe-detail.png" width="220" alt="Recipe detail"></td>
+    <td align="center"><img src="docs/screenshots/shopping.png" width="220" alt="Shopping list"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Today</sub></td>
+    <td align="center"><sub>Recipes</sub></td>
+    <td align="center"><sub>Recipe detail</sub></td>
+    <td align="center"><sub>Shopping</sub></td>
+  </tr>
+</table>
+</div>
+-->
 
-## Сборка
+## Features
+
+- Native Android UI with Jetpack Compose and Material 3
+- Connect to your own Mealie server (URL + long-lived API token)
+- Browse and search recipes
+- Filter recipes by category
+- Recipe detail with ingredients, steps and nutrition
+- Serving scaling with recomputed nutrition
+- Shopping lists — view, check off and uncheck items
+- Add recipe ingredients to a shopping list
+- **Today** dashboard: build your day out of your own recipes
+- Daily calorie total and macro breakdown (protein / fat / carbs)
+- Meal slots (breakfast, main, side, vegetables, snack, extra) with serving adjustment
+- Light / dark / system themes
+- Secure API-token storage using the Android Keystore (AES/GCM)
+- LAN- and Tailscale-friendly self-hosted usage
+
+Mealio is intentionally **not** a calorie-tracking app and not a FatSecret
+clone: there is no separate food database, no barcode scanner, no manual food
+entry and no recommendations. It is a thin client for Mealie.
+
+## Requirements
+
+- **Android 8.0+** (API 26)
+- A running **Mealie server** with its API reachable from your phone
+- A Mealie **long-lived API token**
+
+## Installation
+
+1. Download the APK from the [latest release](https://github.com/arttvad9r/Mealio/releases/latest).
+2. Install it on your device (you may need to allow installs from unknown sources).
+3. Open Mealio.
+4. Enter your Mealie server URL.
+5. Enter your long-lived API token.
+
+### Getting an API token
+
+In Mealie: **profile → API tokens → create a long-lived token**. Paste it into
+Mealio's connection screen.
+
+> **Cleartext HTTP.** Mealio supports plain `http://` for self-hosted servers on
+> a home LAN or over Tailscale. With `http://` the API token and data travel
+> without TLS, so that mode is only safe on a trusted network. For Tailscale it
+> is fine: traffic runs inside the encrypted Tailscale tunnel. For a server
+> exposed to the open internet, use `https://`.
+
+## Building from source
+
+You need **JDK 17** and the **Android SDK** (platform 36, build-tools 36).
 
 ```bash
 export JAVA_HOME=/path/to/jdk17
 export ANDROID_HOME=/path/to/android-sdk
 
 ./gradlew :app:assembleDebug        # debug APK
-./gradlew :app:assembleRelease      # release APK (R8 + shrink resources)
-./gradlew :app:testDebugUnitTest    # юнит-тесты
+./gradlew :app:assembleRelease      # release APK (R8 + resource shrinking)
+./gradlew :app:testDebugUnitTest    # unit tests
 ./gradlew :app:lintDebug            # lint
 ```
 
-Release-сборка подписывается ключом из `keystore.properties` (вне репозитория).
-Если файла нет (свежий клон, CI), release собирается **без подписи** — debug-ключ
-для release не используется; для установки неподписанного APK нужен ваш ключ.
-Debug-сборка подписывается стандартным debug-ключом и собирается всегда.
+Release builds are signed with the key described in `keystore.properties`
+(kept outside the repository). Without that file — a fresh clone or CI — the
+release build is left **unsigned** rather than being signed with the debug key.
+Debug builds are always signed with the standard debug key.
 
-## Статус
+## Tech stack
 
-**V1.2** — рабочий клиент: подключение, экран «Сегодня» (конструктор дневного
-питания из своих рецептов с подсчётом ккал/Б/Ж/У), список и карточка рецептов,
-масштабирование порций, списки покупок, добавление ингредиентов в список,
-настройки и темы. Юнит-тесты и lint зелёные, собираются debug- и release-APK.
+- **Kotlin** + **Jetpack Compose** + **Material 3**
+- Kotlin Coroutines / Flow, ViewModel
+- **Retrofit** + **OkHttp** + kotlinx.serialization
+- Coil (recipe images)
+- Android Keystore (AES/GCM) for the API token
+- Gradle Kotlin DSL
 
-Планы — в [`docs/ROADMAP.md`](docs/ROADMAP.md). Технические решения
-зафиксированы в [`docs/adr/`](docs/adr/).
+## Status
 
-## Лицензия
+**v1.2** is the current stable release: connection, the **Today** screen (daily
+meal builder from your own recipes with calorie/macro totals), recipe list and
+detail, serving scaling, shopping lists, adding ingredients to a list, settings
+and themes. Unit tests and lint are green.
 
-MIT — см. [LICENSE](LICENSE).
+Plans live in [`docs/ROADMAP.md`](docs/ROADMAP.md); technical decisions are
+recorded in [`docs/adr/`](docs/adr/).
+
+## Contributing
+
+Issues and pull requests are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
