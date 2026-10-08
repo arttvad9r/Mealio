@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Rutina tokens: Paper #FBFBF9 (light), #15171A (dark) -->
+    <color name="window_background">#FBFBF9</color>
+    <color name="ic_launcher_background">#4C7A5A</color>
+</resources>

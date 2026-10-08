@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mealio</string>
+
+    <!-- Navigation -->
+    <string name="nav_recipes">Рецепты</string>
+    <string name="nav_shopping">Покупки</string>
+    <string name="nav_settings">Настройки</string>
+
+    <!-- Connect -->
+    <string name="connect_title">Подключение к Mealie</string>
+    <string name="connect_subtitle">Укажите адрес вашего сервера Mealie и API-токен. Меали скрыт за этим экраном — приложение работает напрямую с вашим сервером.</string>
+    <string name="connect_url_label">Адрес сервера</string>
+    <string name="connect_url_placeholder">http://192.168.1.10:9925</string>
+    <string name="connect_token_label">API-токен</string>
+    <string name="connect_token_hint">Токен создаётся в Mealie: профиль → API-токены. Хранится только на этом устройстве.</string>
+    <string name="connect_token_show">Показать токен</string>
+    <string name="connect_token_hide">Скрыть токен</string>
+    <string name="connect_action">Подключиться</string>
+    <string name="connect_error_url_invalid">Некорректный адрес сервера</string>
+    <string name="connect_error_auth">Неверный токен или нет доступа</string>
+    <string name="connect_error_unreachable">Не удалось подключиться к серверу. Проверьте адрес и сеть.</string>
+    <string name="connect_error_not_mealie">По этому адресу сервер Mealie не найден</string>
+    <string name="connect_error_http">Сервер ответил ошибкой</string>
+    <string name="connect_error_generic">Ошибка подключения</string>
+
+    <!-- Recipes list -->
+    <string name="recipes_search_hint">Поиск рецептов</string>
+    <string name="recipes_category_all">Все</string>
+    <string name="recipes_empty_title">Рецептов пока нет</string>
+    <string name="recipes_empty_subtitle">Добавьте рецепты в Mealie — они появятся здесь</string>
+    <string name="recipes_retry">Повторить</string>
+
+    <!-- Recipe detail -->
+    <string name="recipe_title">Рецепт</string>
+    <string name="recipe_servings_title">Порции</string>
+    <string name="recipe_servings_increase">Увеличить количество порций</string>
+    <string name="recipe_servings_decrease">Уменьшить количество порций</string>
+    <string name="recipe_nutrition_title">Пищевая ценность</string>
+    <string name="nutrition_calories">Калории</string>
+    <string name="nutrition_protein">Белки</string>
+    <string name="nutrition_fat">Жиры</string>
+    <string name="nutrition_carbs">Углеводы</string>
+    <string name="recipe_time_label">Время: %1$s</string>
+    <string name="recipe_tab_ingredients">Ингредиенты</string>
+    <string name="recipe_tab_instructions">Приготовление</string>
+    <string name="recipe_no_ingredients">Ингредиенты не указаны</string>
+    <string name="recipe_no_instructions">Инструкции не указаны</string>
+    <string name="recipe_ingredient_unnamed">Ингредиент</string>
+    <string name="recipe_add_to_list">В список покупок</string>
+    <string name="recipe_add_to_list_done_title">Готово</string>
+    <string name="recipe_add_to_list_done_text">Ингредиенты добавлены в список покупок</string>
+    <string name="recipe_add_to_list_error_title">Ошибка</string>
+
+    <!-- Shopping -->
+    <string name="shopping_list_title">Список покупок</string>
+    <string name="shopping_untitled">Без названия</string>
+    <string name="shopping_empty_title">Списков покупок нет</string>
+    <string name="shopping_empty_subtitle">Создайте список в Mealie — он появится здесь</string>
+    <string name="shopping_list_empty_title">Список пуст</string>
+    <string name="shopping_list_empty_subtitle">Добавьте ингредиенты из рецепта</string>
+    <string name="shopping_item_checked">Куплено</string>
+
+    <!-- Settings -->
+    <string name="settings_server_section">Подключение</string>
+    <string name="settings_server_url">Адрес сервера</string>
+    <string name="settings_server_user">Пользователь</string>
+    <string name="settings_server_household">Домохозяйство</string>
+    <string name="settings_server_version">Версия Mealie</string>
+    <string name="settings_theme_section">Оформление</string>
+    <string name="settings_theme_system">Системная</string>
+    <string name="settings_theme_light">Светлая</string>
+    <string name="settings_theme_dark">Тёмная</string>
+    <string name="settings_account_section">Аккаунт</string>
+    <string name="settings_disconnect">Отключиться</string>
+    <string name="settings_disconnect_confirm_title">Отключиться от сервера?</string>
+    <string name="settings_disconnect_confirm_text">Токен доступа будет удалён с этого устройства. Рецепты и списки на сервере не изменятся.</string>
+    <string name="settings_about_section">О приложении</string>
+    <string name="settings_about_opensource">Mealio — нативный Android-клиент для вашего собственного сервера Mealie.</string>
+    <string name="settings_about_version">Версия %1$s</string>
+    <string name="settings_source_code">Исходный код</string>
+
+    <!-- Common -->
+    <string name="common_ok">Ок</string>
+    <string name="common_cancel">Отмена</string>
+    <string name="common_back">Назад</string>
+    <string name="common_value_dash">—</string>
+
+    <plurals name="shopping_remaining">
+        <item quantity="one">Осталось: %d позиция</item>
+        <item quantity="few">Осталось: %d позиции</item>
+        <item quantity="many">Осталось: %d позиций</item>
+        <item quantity="other">Осталось: %d позиций</item>
+    </plurals>
+</resources>

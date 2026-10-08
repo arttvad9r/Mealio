@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Self-hosted Mealie commonly runs over plain HTTP inside a private network
+  (Tailscale / LAN, e.g. http://192.168.1.10:9925). Android Network Security
+  Config lets us scope cleartext by DOMAIN NAME only — it cannot express a
+  CIDR range, so "all of RFC1918 + 100.64.0.0/10" is not expressible. Since
+  the server address is entered at runtime and may be any private host, we
+  allow cleartext but keep the app free of any other network egress.
+  HTTPS servers are unaffected. Documented tradeoff in README.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
