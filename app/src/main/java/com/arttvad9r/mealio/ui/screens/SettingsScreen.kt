@@ -3,9 +3,12 @@ package com.arttvad9r.mealio.ui.screens
 import android.content.Intent
 import androidx.core.net.toUri
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -26,7 +29,6 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +40,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -304,12 +307,12 @@ private fun CalorieTargetDialog(
     val showError = text.isNotEmpty() && value == null
 
     // A compact, centre-weighted modal for editing a single number: a plain
-    // Material title, one short numeric field with the unit rendered next to
-    // it, and a symmetric pair of actions. Width tracks the content
-    // (roughly 260..320dp) instead of stretching across the screen.
+    // Material title, one narrow numeric field with the unit rendered inline,
+    // and a symmetric pair of actions. The field is sized to the value itself
+    // (a 4-5 digit number) instead of stretching across the dialog.
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            modifier = Modifier.widthIn(min = 260.dp, max = 320.dp),
+            modifier = Modifier.widthIn(min = 228.dp, max = 272.dp),
             shape = Radius.card,
             color = MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -330,19 +333,38 @@ private fun CalorieTargetDialog(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    OutlinedTextField(
-                        value = text,
-                        onValueChange = { input -> text = input.filter { it.isDigit() }.take(5) },
-                        modifier = Modifier.width(120.dp),
-                        shape = Radius.field,
-                        singleLine = true,
-                        isError = showError,
-                        textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center),
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Number,
-                            imeAction = ImeAction.Done,
-                        ),
-                    )
+                    Box(
+                        modifier = Modifier
+                            .width(116.dp)
+                            .height(48.dp)
+                            .border(
+                                width = 1.dp,
+                                color = if (showError) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.outline
+                                },
+                                shape = Radius.field,
+                            )
+                            .padding(horizontal = Space.s),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        BasicTextField(
+                            value = text,
+                            onValueChange = { input -> text = input.filter { it.isDigit() }.take(5) },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.titleMedium.copy(
+                                textAlign = TextAlign.Center,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            ),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = ImeAction.Done,
+                            ),
+                        )
+                    }
                     Spacer(Modifier.width(Space.s))
                     Text(
                         text = stringResource(R.string.settings_target_unit),
@@ -359,7 +381,7 @@ private fun CalorieTargetDialog(
                     )
                 }
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(Space.s, Alignment.CenterHorizontally),
+                    horizontalArrangement = Arrangement.spacedBy(Space.l, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     TextButton(onClick = onDismiss) {
