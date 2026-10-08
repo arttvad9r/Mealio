@@ -15,9 +15,12 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -141,16 +144,16 @@ fun SettingsScreen(
             }
         }
 
-        // A single compact setting row (label + current value) that opens a
-        // small dialog. No section header or second caption — for one setting
-        // the doubled labelling is just visual noise.
+        // A single compact setting row (label + current value + chevron) that
+        // opens a small dialog. No section header or second caption — for one
+        // setting the doubled labelling is just visual noise.
         MealioCard(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { showTargetDialog = true }
-                    .padding(horizontal = Space.l, vertical = Space.s)
-                    .heightIn(min = 48.dp),
+                    .heightIn(min = 64.dp)
+                    .padding(horizontal = Space.l, vertical = Space.s),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -159,14 +162,24 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
-                Text(
-                    text = stringResource(
-                        R.string.settings_target_value,
-                        QuantityFormatter.formatNumber(calorieTarget.toDouble(), LocalContext.current),
-                    ),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Space.xs),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(
+                            R.string.settings_target_value,
+                            QuantityFormatter.formatNumber(calorieTarget.toDouble(), LocalContext.current),
+                        ),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 
