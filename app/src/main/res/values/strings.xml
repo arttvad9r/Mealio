@@ -69,7 +69,7 @@
     <string name="settings_target_title">Calorie target</string>
     <string name="settings_target_value">%1$s kcal</string>
     <string name="settings_target_error">Enter a value between 500 and 10000</string>
-    <string name="settings_target_support">kcal per day</string>
+    <string name="settings_target_unit">kcal</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_section">Appearance</string>

@@ -2,6 +2,7 @@ package com.arttvad9r.mealio.ui.screens
 
 import android.content.Intent
 import androidx.core.net.toUri
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +14,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -24,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -38,8 +42,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.domain.format.QuantityFormatter
 import com.arttvad9r.mealio.domain.model.ServerAccount
@@ -294,52 +300,81 @@ private fun CalorieTargetDialog(
     onSave: (Int) -> Unit,
 ) {
     var text by rememberSaveable { mutableStateOf(current.toString()) }
-    val valid = DailyTarget.parseInput(text) != null
+    val value = DailyTarget.parseInput(text)
+    val showError = text.isNotEmpty() && value == null
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        shape = Radius.card,
-        title = { Text(stringResource(R.string.settings_target_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
-                OutlinedTextField(
-                    value = text,
-                    onValueChange = { input -> text = input.filter { it.isDigit() }.take(5) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = Radius.field,
-                    singleLine = true,
-                    isError = text.isNotEmpty() && !valid,
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done,
-                    ),
-                    supportingText = {
-                        Text(
-                            text = if (text.isNotEmpty() && !valid) {
-                                stringResource(R.string.settings_target_error)
-                            } else {
-                                stringResource(R.string.settings_target_support)
-                            },
-                        )
-                    },
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { DailyTarget.parseInput(text)?.let(onSave) },
-                enabled = valid,
+    // A compact, centre-weighted modal for editing a single number: a plain
+    // Material title, one short numeric field with the unit rendered next to
+    // it, and a symmetric pair of actions. Width tracks the content
+    // (roughly 260..320dp) instead of stretching across the screen.
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            modifier = Modifier.widthIn(min = 260.dp, max = 320.dp),
+            shape = Radius.card,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            tonalElevation = 0.dp,
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = Space.l, vertical = Space.m),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(Space.s),
             ) {
-                // Reuse the existing "Save-style" confirm wording: OK.
-                Text(stringResource(R.string.common_ok))
+                Text(
+                    text = stringResource(R.string.settings_target_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    OutlinedTextField(
+                        value = text,
+                        onValueChange = { input -> text = input.filter { it.isDigit() }.take(5) },
+                        modifier = Modifier.width(120.dp),
+                        shape = Radius.field,
+                        singleLine = true,
+                        isError = showError,
+                        textStyle = MaterialTheme.typography.titleMedium.copy(textAlign = TextAlign.Center),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number,
+                            imeAction = ImeAction.Done,
+                        ),
+                    )
+                    Spacer(Modifier.width(Space.s))
+                    Text(
+                        text = stringResource(R.string.settings_target_unit),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                if (showError) {
+                    Text(
+                        text = stringResource(R.string.settings_target_error),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(Space.s, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text(stringResource(R.string.common_cancel))
+                    }
+                    TextButton(
+                        onClick = { DailyTarget.parseInput(text)?.let(onSave) },
+                        enabled = value != null,
+                    ) {
+                        Text(stringResource(R.string.common_ok))
+                    }
+                }
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.common_cancel))
-            }
-        },
-    )
+        }
+    }
 }
 
 @Composable
