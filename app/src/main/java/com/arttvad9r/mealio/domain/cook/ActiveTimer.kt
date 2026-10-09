@@ -29,10 +29,9 @@ fun ActiveTimer.isFinished(nowMillis: Long): Boolean = deadlineMillis <= nowMill
  */
 data class ActiveTimers(
     val items: List<ActiveTimer> = emptyList(),
+    /** Monotonic and never rewound, so an id is never reused after a removal. */
+    private val nextId: Long = 1L,
 ) {
-    /** Ids are monotonic: never reuse one, so a removed timer's id stays gone. */
-    private val nextId: Long get() = (items.maxOfOrNull { it.id } ?: 0L) + 1L
-
     fun start(totalSeconds: Long, stepNumber: Int, nowMillis: Long): ActiveTimers {
         if (totalSeconds <= 0) return this
         val timer = ActiveTimer(
@@ -41,7 +40,7 @@ data class ActiveTimers(
             deadlineMillis = nowMillis + totalSeconds * 1_000L,
             stepNumber = stepNumber,
         )
-        return copy(items = items + timer)
+        return copy(items = items + timer, nextId = nextId + 1L)
     }
 
     fun remove(id: Long): ActiveTimers = copy(items = items.filterNot { it.id == id })

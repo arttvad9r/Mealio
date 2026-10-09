@@ -9,24 +9,31 @@ import android.os.SystemClock
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import com.arttvad9r.mealio.domain.cook.ActiveTimer
+import com.arttvad9r.mealio.domain.cook.CookTimerScheduler
 import com.arttvad9r.mealio.domain.cook.alarmRequestCode
 import com.arttvad9r.mealio.domain.cook.wallTriggerAt
 
 /**
- * Owns the background half of a Cook Mode timer: one alarm per timer, keyed by a
- * stable request code, so timers complete even when Mealio is backgrounded and
- * the screen is off. A plain Compose coroutine cannot do that — it stops when the
- * app is backgrounded — so the completion alert is driven by AlarmManager.
+ * The Android implementation of [CookTimerScheduler]: one AlarmManager alarm per
+ * timer, keyed by a stable request code, so several timers run and complete
+ * independently even when Mealio is backgrounded and the screen is off. A plain
+ * coroutine cannot do that — it stops with the process — so the finish alert is
+ * driven by the system alarm, and this class owns nothing else.
  *
- * Exact alarms need a user-granted special access from Android 12/14. Cook Mode
- * degrades gracefully: without it the alarm is still set with the inexact,
- * doze-friendly API, which may fire a little late but never silently drops the
- * timer. No special permission is requested at launch.
+ * Exact alarms need a user-granted special access from Android 12. Cook Mode asks
+ * for it contextually (see CookModeScreen) and degrades gracefully: without it the
+ * alarm is still set with the inexact, doze-friendly API, which may fire late but
+ * is never silently dropped.
  */
-object CookTimerAlarms {
+class CookTimerAlarms(private val context: Context) : CookTimerScheduler {
+
+    init {
+        // The channel must exist before the first notification can be posted.
+        CookTimerNotifications.ensureChannel(context)
+    }
 
     /** Schedules (or reschedules) the completion alarm for [timer]. */
-    fun schedule(context: Context, timer: ActiveTimer) {
+    override fun schedule(timer: ActiveTimer) {
         val manager = context.getSystemService<AlarmManager>() ?: return
         val triggerAt = wallTriggerAt(timer.deadlineMillis, SystemClock.elapsedRealtime(), System.currentTimeMillis())
         val pending = pendingIntent(context, timer, PendingIntent.FLAG_UPDATE_CURRENT)
@@ -38,7 +45,7 @@ object CookTimerAlarms {
     }
 
     /** Cancels the alarm (and any shown notification) for a removed timer. */
-    fun cancel(context: Context, timerId: Long) {
+    override fun cancel(timerId: Long) {
         val manager = context.getSystemService<AlarmManager>() ?: return
         val pending = pendingIntent(context, timerId, PendingIntent.FLAG_NO_CREATE) ?: return
         manager.cancel(pending)
@@ -55,7 +62,6 @@ object CookTimerAlarms {
             timer.id,
             extraFlags,
             stepNumber = timer.stepNumber,
-            totalSeconds = timer.totalSeconds,
         )!!
 
     private fun pendingIntent(
@@ -63,15 +69,13 @@ object CookTimerAlarms {
         timerId: Long,
         extraFlags: Int,
         stepNumber: Int = 0,
-        totalSeconds: Long = 0L,
     ): PendingIntent? {
         val intent = Intent(context, CookTimerReceiver::class.java).apply {
             action = CookTimerReceiver.ACTION_TIMER_FINISHED
-            // The extras distinguish alarms when the PendingIntents are compared.
+            // The data URI is what tells two timers' PendingIntents apart.
             data = "mealio://cook-timer/$timerId".toUri()
             putExtra(CookTimerReceiver.EXTRA_TIMER_ID, timerId)
             putExtra(CookTimerReceiver.EXTRA_STEP_NUMBER, stepNumber)
-            putExtra(CookTimerReceiver.EXTRA_TOTAL_SECONDS, totalSeconds)
         }
         return PendingIntent.getBroadcast(
             context,

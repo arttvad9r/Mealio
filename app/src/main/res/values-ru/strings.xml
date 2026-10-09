@@ -118,7 +118,6 @@
     <string name="cook_progress">%1$d из %2$d</string>
     <string name="cook_next">Далее</string>
     <string name="cook_finish">Готово</string>
-    <string name="cook_timers_title">Таймеры</string>
     <string name="cook_timer_done">Время вышло</string>
     <string name="cook_timer_step_short">шаг %1$d</string>
     <string name="cook_timer_restart_cd">Перезапустить таймер</string>
@@ -137,7 +136,7 @@
     <string name="cook_channel_name">Кухонные таймеры</string>
     <string name="cook_channel_description">Сообщает, когда кухонный таймер завершён</string>
     <string name="cook_notification_title">Таймер завершён</string>
-    <string name="cook_notification_body">Шаг %1$d · %2$s</string>
+    <string name="cook_notification_body">Шаг %1$d</string>
     <string name="duration_seconds">%1$d с</string>
     <plurals name="shopping_remaining">
         <item quantity="one">Осталось: %d позиция</item>

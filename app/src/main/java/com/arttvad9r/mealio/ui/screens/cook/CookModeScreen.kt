@@ -2,11 +2,14 @@ package com.arttvad9r.mealio.ui.screens.cook
 
 import android.Manifest
 import android.app.Activity
+import android.app.AlarmManager
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.WindowManager
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -47,7 +50,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -64,19 +66,20 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.core.content.getSystemService
+import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.arttvad9r.mealio.R
+import com.arttvad9r.mealio.cook.CookTimerAlarms
 import com.arttvad9r.mealio.domain.cook.ActiveTimer
 import com.arttvad9r.mealio.domain.cook.CookStep
 import com.arttvad9r.mealio.domain.cook.TimerSetup
-import com.arttvad9r.mealio.domain.cook.TimerSuggestion
 import com.arttvad9r.mealio.domain.cook.isFinished
 import com.arttvad9r.mealio.domain.cook.remainingSeconds
-import com.arttvad9r.mealio.domain.format.DurationFormatter
 import com.arttvad9r.mealio.ui.theme.IconSize
 import com.arttvad9r.mealio.ui.theme.Radius
 import com.arttvad9r.mealio.ui.theme.Space
@@ -100,11 +103,12 @@ fun CookModeScreen(
     val viewModel: CookTimerViewModel = viewModel(
         key = "cook-timers",
         factory = viewModelFactory {
-            initializer { CookTimerViewModel(appContext, createSavedStateHandle()) }
+            initializer { CookTimerViewModel(CookTimerAlarms(appContext), createSavedStateHandle()) }
         },
     )
     val timers by viewModel.timers.collectAsStateWithLifecycle()
     val now by viewModel.now.collectAsStateWithLifecycle()
+    val editor by viewModel.editor.collectAsStateWithLifecycle()
 
     // Timers survive leaving the screen only within this session; refresh on the
     // way back in so a background/foreground round-trip does not freeze them.
@@ -114,6 +118,27 @@ fun CookModeScreen(
     // never at app launch. The timer works either way; this only controls whether
     // the finish alert can surface while the app is backgrounded.
     RequestNotificationPermission()
+
+    // Exact alarms need the "Alarms & reminders" special access on Android 12+. We
+    // ask once, the first time the user starts a timer, and only if it is missing;
+    // until then the alarm still fires, just without the exact-timing guarantee.
+    var askedExactAlarm by rememberSaveable { mutableStateOf(false) }
+    val exactAlarmLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { /* granted or not: the timer runs either way */ }
+    val requestExactAlarmAccess = {
+        val manager = context.getSystemService<AlarmManager>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            !askedExactAlarm &&
+            manager?.canScheduleExactAlarms() == false
+        ) {
+            askedExactAlarm = true
+            exactAlarmLauncher.launch(
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                    .setData("package:${context.packageName}".toUri()),
+            )
+        }
+    }
 
     // Keep the screen awake while cooking, and release it on exit — but only if
     // we were the ones who set the flag.
@@ -181,16 +206,11 @@ fun CookModeScreen(
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onBackground,
                 )
-                Spacer(Modifier.size(Space.l))
-                AutomaticTimerSetups(
-                    suggestions = step.suggestions,
-                    onStart = { seconds -> viewModel.start(seconds, position + 1) },
-                )
             }
 
             // Global timer area, pinned above the navigation: the running timers
-            // and the manual "+ Timer" fallback both live here, so how many are
-            // running never moves the instruction at the top.
+            // and the single "+ Timer" creation point both live here, so how many
+            // are running never moves the instruction at the top.
             if (timers.items.isNotEmpty()) {
                 Spacer(Modifier.size(Space.m))
                 ActiveTimersPanel(
@@ -201,8 +221,14 @@ fun CookModeScreen(
                 )
             }
             Spacer(Modifier.size(Space.s))
-            ManualTimerArea(
-                onStart = { seconds -> viewModel.start(seconds, position + 1) },
+            TimerCreationArea(
+                editor = editor,
+                onOpen = { viewModel.openEditor(suggestionSeconds(step)) },
+                onCancel = viewModel::cancelEditor,
+                onStart = { seconds ->
+                    requestExactAlarmAccess()
+                    viewModel.startFromEditor(seconds, position + 1)
+                },
             )
 
             Spacer(Modifier.size(Space.l))
@@ -247,67 +273,64 @@ private fun RequestNotificationPermission() {
 }
 
 /**
- * The automatic timer setups for the current step: one editable setup per time
- * the step names (a range is one setup, opening at its lower bound). These belong
- * to the instruction, so they stay directly under it. The manual "+ Timer"
- * fallback lives in the bottom timer area instead.
+ * The single timer-creation point of Cook Mode, always present: tapping "+ Timer"
+ * asks the ViewModel to open the inline editor, which opens at [initialSeconds] —
+ * the time the current step names, or a neutral five minutes when it names none.
+ * While it is open the action becomes "Cancel", which closes it and starts nothing.
+ * The editor itself is pure UI state; the cancel/start rules live in the ViewModel
+ * so they are tested without Compose.
  */
 @Composable
-private fun AutomaticTimerSetups(
-    suggestions: List<TimerSuggestion>,
+private fun TimerCreationArea(
+    editor: TimerEditorState,
+    onOpen: () -> Unit,
+    onCancel: () -> Unit,
     onStart: (Long) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
-        suggestions.forEachIndexed { i, suggestion ->
-            key(i) {
-                TimerSetupRow(
-                    initial = TimerSetup.initialFor(suggestion),
-                    onStart = onStart,
-                )
-            }
+    if (editor.visible) {
+        TimerSetupRow(
+            initial = TimerSetup.of(editor.initialSeconds),
+            session = editor.session,
+            onStart = onStart,
+        )
+        TextButton(onClick = onCancel) {
+            Text(stringResource(R.string.common_cancel))
+        }
+    } else {
+        TextButton(onClick = onOpen) {
+            Text(stringResource(R.string.cook_add_timer))
         }
     }
 }
 
 /**
- * The manual timer affordance in the bottom timer area, always present: tapping
- * "+ Timer" reveals the same inline setup used for automatic suggestions, opening
- * at a neutral 05:00. Starting one creates an ordinary ActiveTimer and the action
- * becomes available again, so several manual timers can be added in a row.
+ * The starting value for the single timer editor: the step's own parsed time — a
+ * range opening at its lower bound — or the neutral default when the step names no
+ * time. There is no separate control per suggestion any more; the parser only
+ * proposes this one number.
  */
-@Composable
-private fun ManualTimerArea(onStart: (Long) -> Unit) {
-    var manual by rememberSaveable { mutableStateOf(false) }
-
-    if (manual) {
-        TimerSetupRow(
-            initial = TimerSetup.MANUAL,
-            onStart = { seconds ->
-                onStart(seconds)
-                manual = false
-            },
-        )
-    } else {
-        TextButton(onClick = { manual = true }) {
-            Text(stringResource(R.string.cook_add_timer))
-        }
-    }
-}
+internal fun suggestionSeconds(step: CookStep): Long =
+    step.suggestions.firstOrNull()
+        ?.let { TimerSetup.initialFor(it).totalSeconds }
+        ?: TimerSetup.MANUAL.totalSeconds
 
 private val TimerSetupSaver: Saver<TimerSetup, Long> = Saver(
     save = { it.totalSeconds },
     restore = { TimerSetup.of(it) },
 )
 
-/** One inline setup: `−  06:00  +   ▶`, each control a normal touch target. */
+/** One inline editor: `−  06:00  +   ▶`, each control a normal touch target. */
 @Composable
 private fun TimerSetupRow(
     initial: TimerSetup,
+    session: Int,
     onStart: (Long) -> Unit,
 ) {
     // A custom saver: the wrapped value class is not itself a Bundle type, so the
-    // default saver would throw. Only the plain number is persisted.
-    var setup by rememberSaveable(initial, stateSaver = TimerSetupSaver) {
+    // default saver would throw. Only the plain number is persisted. The `session`
+    // key re-seeds the value each time the editor is opened, while still surviving a
+    // configuration change within one edit.
+    var setup by rememberSaveable(session, stateSaver = TimerSetupSaver) {
         mutableStateOf(initial)
     }
     val label = formatCountdown(setup.totalSeconds)
@@ -350,8 +373,8 @@ private fun TimerSetupRow(
 }
 
 /**
- * The compact strip of running timers shown above the navigation. One timer is a
- * single line with no heading; several get a "Timers" heading. Only the two most
+ * The compact strip of running timers shown above the navigation, one line each.
+ * There is no heading — the rows themselves read as timers. Only the two most
  * recent are shown until the user expands the rest, so a long list can never
  * crowd out the instruction or the buttons.
  */
@@ -373,13 +396,6 @@ private fun ActiveTimersPanel(
             .heightIn(max = MAX_TIMERS_HEIGHT),
         verticalArrangement = Arrangement.spacedBy(Space.xs),
     ) {
-        if (timers.size > 1) {
-            Text(
-                text = stringResource(R.string.cook_timers_title),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(Space.xs),
