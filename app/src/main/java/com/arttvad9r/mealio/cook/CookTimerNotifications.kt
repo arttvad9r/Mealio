@@ -29,7 +29,11 @@ import com.arttvad9r.mealio.domain.cook.alarmRequestCode
  */
 object CookTimerNotifications {
 
-    internal const val CHANNEL_ID = "cook-timers"
+    // A/B diagnostic: a brand-new channel id. Android freezes a channel's
+    // importance/sound/vibration once it is created, so edits to an existing
+    // "cook-timers" install never take effect. Bumping the id forces a fresh
+    // channel with the current settings. The user-facing name is unchanged.
+    internal const val CHANNEL_ID = "cook-timers-v2"
 
     /**
      * Creates the channel. Importance is [NotificationManager.IMPORTANCE_HIGH] so a

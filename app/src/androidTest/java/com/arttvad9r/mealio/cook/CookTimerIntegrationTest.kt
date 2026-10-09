@@ -153,7 +153,7 @@ class CookTimerIntegrationTest {
 
         CookTimerReceiver().onReceive(context, completionIntent(id, step))
 
-        val posted = activeNotification(id)
+        val posted = awaitNotification(id)
         assertNotNull("receiver did not post a notification for timer $id", posted)
         val title = posted!!.extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
         val text = posted.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
@@ -211,7 +211,7 @@ class CookTimerIntegrationTest {
         // …but only A completes.
         CookTimerReceiver().onReceive(context, completionIntent(a, step = 1))
 
-        val forA = activeNotification(a)
+        val forA = awaitNotification(a)
         assertNotNull(forA)
         assertEquals(
             context.getString(R.string.cook_notification_body, 1),
@@ -269,6 +269,21 @@ class CookTimerIntegrationTest {
         notifications.activeNotifications
             .firstOrNull { it.id == alarmRequestCode(id) }
             ?.notification
+
+    /**
+     * Waits (bounded) for a notification to be posted before asserting. Posting is
+     * asynchronous inside the system NotificationService, so reading
+     * `activeNotifications` right after `notify()` is a race — this polls instead.
+     */
+    private fun awaitNotification(id: Long): Notification? {
+        val deadline = SystemClock.elapsedRealtime() + 2_000L
+        var posted = activeNotification(id)
+        while (posted == null && SystemClock.elapsedRealtime() < deadline) {
+            Thread.sleep(25L)
+            posted = activeNotification(id)
+        }
+        return posted
+    }
 
     /**
      * Waits (bounded) for a notification to disappear. NotificationManager's
