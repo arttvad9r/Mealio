@@ -158,7 +158,7 @@ Notes for contributors, including API quirks and architecture, are in
 ## Roadmap
 
 **V1.4** is implemented on `main` and is being prepared for release (not published
-yet — the latest release is still [v1.2](https://github.com/arttvad9r/Mealio/releases/latest)):
+yet — the latest release is [v1.3](https://github.com/arttvad9r/Mealio/releases/latest)):
 
 - **Cook Mode** — a step-by-step cooking view that keeps the screen on;
 - timers straight from recipe steps: several independent timers that fire exactly
