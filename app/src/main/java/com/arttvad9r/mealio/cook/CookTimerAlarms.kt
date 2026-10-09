@@ -22,14 +22,13 @@ import com.arttvad9r.mealio.domain.cook.wallTriggerAt
  * driven by the system alarm, and this class owns nothing else.
  *
  * A kitchen timer must fire on time, so the alarm is set as an *alarm clock*
- * ([AlarmManager.setAlarmClock]), the strongest delivery contract AlarmManager
- * offers: the system exits Doze shortly before it and does not treat it as a
- * deferrable background alarm. This replaced [AlarmManager.setExactAndAllowWhileIdle]
- * after a physical-device measurement: on OnePlus/OxygenOS that call was accepted
- * with exact-alarm permission but registered with a delivery window (`dumpsys
- * alarm`: `window=+45s`, `maxWhenElapsed=trigger+45s`) and fired tens of seconds
- * late. The caller still checks [canScheduleExactAlarms] before scheduling; either
- * API requires that access, and [schedule] refuses silently without it.
+ * ([AlarmManager.setAlarmClock]) — the strongest delivery contract AlarmManager
+ * offers: the system exits Doze shortly before such an alarm and does not treat it
+ * as a deferrable background alarm. A plain exact alarm
+ * ([AlarmManager.setExactAndAllowWhileIdle]) looked correct on the emulator yet was
+ * delivered with an OEM-imposed window on a real device (see ADR 0009), which a
+ * timer cannot tolerate. The caller still checks [canScheduleExactAlarms] before
+ * scheduling; [schedule] refuses silently without that access.
  */
 class CookTimerAlarms(private val context: Context) : CookTimerScheduler {
 
