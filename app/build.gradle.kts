@@ -109,4 +109,11 @@ dependencies {
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+
+    // Instrumented tests cover only the Android half of Cook Mode — channel,
+    // receiver, notification, PendingIntent identity and AlarmManager scheduling.
+    // The runner is already declared in defaultConfig; these are its dependencies.
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:core:1.6.1")
 }

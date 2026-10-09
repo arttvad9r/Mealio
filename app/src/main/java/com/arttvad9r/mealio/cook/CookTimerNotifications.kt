@@ -29,7 +29,7 @@ import com.arttvad9r.mealio.domain.cook.alarmRequestCode
  */
 object CookTimerNotifications {
 
-    private const val CHANNEL_ID = "cook-timers"
+    internal const val CHANNEL_ID = "cook-timers"
 
     /**
      * Creates the channel. Importance is [NotificationManager.IMPORTANCE_HIGH] so a
