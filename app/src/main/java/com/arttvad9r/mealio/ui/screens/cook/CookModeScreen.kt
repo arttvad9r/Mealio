@@ -27,14 +27,13 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -65,6 +64,8 @@ import com.arttvad9r.mealio.domain.cook.TimerSuggestion
 import com.arttvad9r.mealio.domain.cook.isFinished
 import com.arttvad9r.mealio.domain.cook.remainingSeconds
 import com.arttvad9r.mealio.domain.format.DurationFormatter
+import com.arttvad9r.mealio.ui.theme.IconSize
+import com.arttvad9r.mealio.ui.theme.Radius
 import com.arttvad9r.mealio.ui.theme.Space
 
 /**
@@ -157,7 +158,7 @@ fun CookModeScreen(
                     .weight(1f)
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.Top,
             ) {
                 if (step.title != null) {
                     Text(
@@ -202,7 +203,11 @@ fun CookModeScreen(
     }
 }
 
-/** The compact strip of running timers shown above the current step. */
+/**
+ * The compact strip of running timers shown above the current step. The heading
+ * only appears once there are two or more timers — a single timer is just one
+ * line, so it never competes with the instruction for attention.
+ */
 @Composable
 private fun ActiveTimersPanel(
     timers: List<ActiveTimer>,
@@ -212,19 +217,26 @@ private fun ActiveTimersPanel(
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(Space.s),
+        verticalArrangement = Arrangement.spacedBy(Space.xs),
     ) {
-        Text(
-            text = stringResource(R.string.cook_timers_title),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (timers.size > 1) {
+            Text(
+                text = stringResource(R.string.cook_timers_title),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         timers.forEach { timer ->
             TimerRow(timer, now, onRemove, onRestart)
         }
     }
 }
 
+/**
+ * One compact line per timer: `⏱ 14:28 · шаг 1  ×`. The remaining time leads, the
+ * started-from step qualifies it, and the icon/actions keep normal touch targets
+ * without inflating the row's height.
+ */
 @Composable
 private fun TimerRow(
     timer: ActiveTimer,
@@ -232,44 +244,43 @@ private fun TimerRow(
     onRemove: (Long) -> Unit,
     onRestart: (Long) -> Unit,
 ) {
-    val context = LocalContext.current
     val finished = timer.isFinished(now)
     val remaining = timer.remainingSeconds(now)
-    val length = DurationFormatter.formatTimer(timer.totalSeconds, context)
-    val label = stringResource(R.string.cook_timer_step, length, timer.stepNumber)
 
-    Card(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = if (finished) {
-                MaterialTheme.colorScheme.tertiaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant
-            },
-        ),
+        shape = Radius.field,
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = Space.m, vertical = Space.s),
+                .padding(start = Space.m, end = Space.xs),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Text(
-                    text = if (finished) {
-                        stringResource(R.string.cook_timer_done)
-                    } else {
-                        formatCountdown(remaining)
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
+            Icon(
+                Icons.Filled.Timer,
+                contentDescription = null,
+                modifier = Modifier.size(IconSize.action),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.width(Space.s))
+            Text(
+                text = if (finished) {
+                    stringResource(R.string.cook_timer_done)
+                } else {
+                    formatCountdown(remaining)
+                },
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.width(Space.xs))
+            Text(
+                text = stringResource(R.string.cook_timer_step_short, timer.stepNumber),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
             if (finished) {
                 IconButton(
                     onClick = { onRestart(timer.id) },
