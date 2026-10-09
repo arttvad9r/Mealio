@@ -118,12 +118,23 @@
     <string name="cook_progress">%1$d of %2$d</string>
     <string name="cook_next">Next</string>
     <string name="cook_finish">Done</string>
-    <string name="cook_timer_cd">Start timer %1$s</string>
     <string name="cook_timers_title">Timers</string>
     <string name="cook_timer_done">Time is up</string>
     <string name="cook_timer_step_short">step %1$d</string>
     <string name="cook_timer_restart_cd">Restart timer</string>
     <string name="cook_timer_remove_cd">Remove timer</string>
+    <string name="cook_setup_decrease_cd">One minute less</string>
+    <string name="cook_setup_increase_cd">One minute more</string>
+    <string name="cook_add_timer">+ Timer</string>
+    <string name="cook_less_timers">Show less</string>
+    <plurals name="cook_more_timers">
+        <item quantity="one">%d more timer</item>
+        <item quantity="other">%d more timers</item>
+    </plurals>
+    <string name="cook_channel_name">Cooking timers</string>
+    <string name="cook_channel_description">Notifies you when a cooking timer finishes</string>
+    <string name="cook_notification_title">Timer finished</string>
+    <string name="cook_notification_body">Step %1$d · %2$s</string>
     <string name="duration_seconds">%1$d s</string>
     <plurals name="shopping_remaining">
         <item quantity="one">Remaining: %d item</item>
