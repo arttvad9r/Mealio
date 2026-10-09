@@ -51,6 +51,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -274,13 +275,22 @@ private fun TimerSetupArea(
     }
 }
 
+private val TimerSetupSaver: Saver<TimerSetup, Long> = Saver(
+    save = { it.totalSeconds },
+    restore = { TimerSetup.of(it) },
+)
+
 /** One inline setup: `−  06:00  +   ▶`, each control a normal touch target. */
 @Composable
 private fun TimerSetupRow(
     initial: TimerSetup,
     onStart: (Long) -> Unit,
 ) {
-    var setup by rememberSaveable(initial) { mutableStateOf(initial) }
+    // A custom saver: the wrapped value class is not itself a Bundle type, so the
+    // default saver would throw. Only the plain number is persisted.
+    var setup by rememberSaveable(initial, stateSaver = TimerSetupSaver) {
+        mutableStateOf(initial)
+    }
     val label = formatCountdown(setup.totalSeconds)
 
     Row(
