@@ -30,9 +30,9 @@ interface.
 > **Mealio requires an existing, running Mealie server.** If you don't have one
 > yet, start at [mealie.io](https://mealie.io) to learn how to self-host it.
 
-> **Language.** In **V1.3** (on `main`, not yet released) the UI is localized:
-> English is the default language, Russian is selectable in Settings. The
-> documentation is available in English (this page) and Russian ([README.md](README.md)).
+> **Language.** Since **V1.3** (on `main`) the UI is localized: English is the
+> default language, Russian is selectable in Settings. The documentation is
+> available in English (this page) and Russian ([README.md](README.md)).
 
 ## Screenshots
 
@@ -124,7 +124,7 @@ Mealio is an **independent community project** and is **not affiliated with or
 endorsed by** the Mealie project.
 
 - **Current state:** a usable personal Android client, under active development.
-- **UI languages:** English (default) and Russian, both in V1.3 on `main`.
+- **UI languages:** English (default) and Russian — both in `main` since V1.3.
 
 It is not marketed as production-grade or enterprise-stable software — it's a
 small, focused app that works well for its author's own self-hosted setup.
@@ -157,12 +157,13 @@ Notes for contributors, including API quirks and architecture, are in
 
 ## Roadmap
 
-**V1.3** is implemented on `main` and is being prepared for release (not published
+**V1.4** is implemented on `main` and is being prepared for release (not published
 yet — the latest release is still [v1.2](https://github.com/arttvad9r/Mealio/releases/latest)):
 
-- UI localization: English as the default language, Russian as a selectable one,
-  switchable from Settings;
-- a configurable daily calorie target instead of the fixed 2300 kcal.
+- **Cook Mode** — a step-by-step cooking view that keeps the screen on;
+- timers straight from recipe steps: several independent timers that fire exactly
+  on time — with sound and vibration — even while the app is in the background;
+- the "Today" tab and the daily calorie target are hidden from the UI.
 
 Possible future directions — no timelines promised, and only what actually fits
 the project:

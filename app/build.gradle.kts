@@ -26,8 +26,8 @@ android {
         applicationId = "com.arttvad9r.mealio"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // Ship only the locales the app actually supports (English default,
         // Russian). Also keeps translations pulled in by libraries out of the APK.
