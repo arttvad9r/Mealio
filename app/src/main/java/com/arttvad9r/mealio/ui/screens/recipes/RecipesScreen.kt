@@ -17,11 +17,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -60,9 +62,11 @@ fun RecipesScreen(
     onCategorySelected: (String?) -> Unit,
     onOpenRecipe: (String) -> Unit,
     onRefresh: () -> Unit,
+    onAddRecipe: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
+    Box(modifier = modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
         CompactSearchField(
             value = state.query,
             onValueChange = onQueryChange,
@@ -121,7 +125,7 @@ fun RecipesScreen(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(
                         start = Space.screen,
                         end = Space.screen,
-                        bottom = Space.l * 2,
+                        bottom = Space.l * 2 + 56.dp,
                     ),
                     verticalArrangement = Arrangement.spacedBy(Space.m),
                 ) {
@@ -134,6 +138,21 @@ fun RecipesScreen(
                     }
                 }
             }
+        }
+        }
+        FloatingActionButton(
+            onClick = onAddRecipe,
+            shape = Radius.fab,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(Space.screen),
+        ) {
+            Icon(
+                Icons.Filled.Add,
+                contentDescription = stringResource(R.string.recipe_create_action),
+            )
         }
     }
 }

@@ -29,7 +29,18 @@ interface RecipeSource {
     suspend fun recipe(slug: String): RecipeDetail
 }
 
-class RecipeRepository(private val connection: ConnectionRepository) : RecipeSource {
+/**
+ * The recipe writes the manual-create UI needs (V1.5). [RecipeRepository] is the
+ * real implementation; the create ViewModel takes this interface so its state
+ * machine can be unit-tested with a lightweight fake and no network stack.
+ */
+interface RecipeWriteSource {
+    suspend fun createRecipe(name: String): String
+    suspend fun updateRecipe(slug: String, draft: RecipeDraft): RecipeDetail
+}
+
+class RecipeRepository(private val connection: ConnectionRepository) :
+    RecipeSource, RecipeWriteSource {
 
     private fun api() = connection.api()
 
@@ -88,7 +99,7 @@ class RecipeRepository(private val connection: ConnectionRepository) : RecipeSou
      * Creates a recipe and returns its slug. Mealie's POST accepts only a name, so
      * the content of a new recipe is applied by a following [updateRecipe].
      */
-    suspend fun createRecipe(name: String): String = withContext(Dispatchers.IO) {
+    override suspend fun createRecipe(name: String): String = withContext(Dispatchers.IO) {
         val api = apiOrThrow()
         try {
             api.createRecipe(CreateRecipeRequest(name.trim()))
@@ -102,7 +113,7 @@ class RecipeRepository(private val connection: ConnectionRepository) : RecipeSou
      * detail. The PATCH body contains only those fields, so nothing Mealio does not
      * edit (nutrition, categories, tags, settings, ...) is touched.
      */
-    suspend fun updateRecipe(slug: String, draft: RecipeDraft): RecipeDetail =
+    override suspend fun updateRecipe(slug: String, draft: RecipeDraft): RecipeDetail =
         withContext(Dispatchers.IO) {
             val api = apiOrThrow()
             try {

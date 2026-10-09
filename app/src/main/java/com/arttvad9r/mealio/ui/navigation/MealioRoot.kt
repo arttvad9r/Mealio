@@ -45,6 +45,8 @@ import com.arttvad9r.mealio.ui.errorMessage
 import com.arttvad9r.mealio.ui.screens.ConnectScreen
 import com.arttvad9r.mealio.ui.screens.SettingsScreen
 import com.arttvad9r.mealio.ui.screens.cook.CookModeScreen
+import com.arttvad9r.mealio.ui.screens.recipecreate.RecipeCreateRoute
+import com.arttvad9r.mealio.ui.screens.recipecreate.RecipeCreateViewModel
 import com.arttvad9r.mealio.ui.screens.recipes.RecipesScreen
 import com.arttvad9r.mealio.ui.screens.recipes.RecipesViewModel
 import com.arttvad9r.mealio.ui.screens.recipedetail.RecipeDetailScreen
@@ -122,6 +124,8 @@ val context = LocalContext.current
     var selectedListId by rememberSaveable { mutableStateOf<String?>(null) }
     // Non-null while Cook Mode is open: the recipe steps being cooked.
     var cookSteps by remember { mutableStateOf<List<CookStep>?>(null) }
+    // True while the manual recipe-create screen is open.
+    var creatingRecipe by rememberSaveable { mutableStateOf(false) }
 
     if (cookSteps != null) {
         CookModeScreen(
@@ -153,6 +157,29 @@ val context = LocalContext.current
         },
     )
     val shoppingState by shoppingViewModel.state.collectAsStateWithLifecycle()
+
+    val createViewModel: RecipeCreateViewModel = viewModel(
+        key = "recipe-create",
+        factory = viewModelFactory {
+            initializer { RecipeCreateViewModel(container.recipeRepository) }
+        },
+    )
+
+    if (creatingRecipe) {
+        RecipeCreateRoute(
+            viewModel = createViewModel,
+            onExit = { creatingRecipe = false },
+            onCreated = { slug ->
+                creatingRecipe = false
+                // Reload the list so the new recipe shows up without a restart, then
+                // open the existing detail for the slug the PATCH actually returned.
+                recipesViewModel.refresh()
+                selectedRecipeSlug = slug
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
+        return
+    }
 
     val onBack: () -> Unit = {
         when {
@@ -236,6 +263,10 @@ val context = LocalContext.current
                     onCategorySelected = recipesViewModel::onCategorySelected,
                     onOpenRecipe = { selectedRecipeSlug = it },
                     onRefresh = recipesViewModel::refresh,
+                    onAddRecipe = {
+                        createViewModel.reset()
+                        creatingRecipe = true
+                    },
                     modifier = contentModifier,
                 )
 
