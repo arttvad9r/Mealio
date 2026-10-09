@@ -10,12 +10,13 @@
          requested contextually in Cook Mode, never at launch). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- A kitchen timer must fire on time; on Android 12+ AlarmManager needs this
-         special access for exact alarms. It is special app access, not a runtime
-         dialog, and is never requested at launch. There is NO inexact fallback:
-         while the access is missing the app refuses to start a timer and explains
-         how to grant it, so a timer can never fire a minute late. USE_EXACT_ALARM
-         is deliberately not declared — that is only for alarm-clock apps. See
-         CookTimerAlarms. -->
+         special access for exact alarms (setAlarmClock). It is special app access,
+         not a runtime dialog, and is never requested at launch. There is NO inexact
+         fallback: while the access is missing the app refuses to start a timer and
+         explains how to grant it, so a timer can never fire a minute late.
+         USE_EXACT_ALARM is deliberately not declared — that auto-granted permission
+         is reserved for real clock/alarm apps and cannot be justified for a cooking
+         timer. See CookTimerAlarms. -->
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
 
     <application

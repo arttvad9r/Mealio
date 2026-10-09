@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.SystemClock
 import androidx.core.content.getSystemService
 import androidx.core.net.toUri
+import com.arttvad9r.mealio.MainActivity
 import com.arttvad9r.mealio.domain.cook.ActiveTimer
 import com.arttvad9r.mealio.domain.cook.CookTimerScheduler
 import com.arttvad9r.mealio.domain.cook.alarmRequestCode
@@ -20,12 +21,15 @@ import com.arttvad9r.mealio.domain.cook.wallTriggerAt
  * coroutine cannot do that — it stops with the process — so the finish alert is
  * driven by the system alarm, and this class owns nothing else.
  *
- * A kitchen timer must fire on time, so only the exact API is used
- * ([AlarmManager.setExactAndAllowWhileIdle]). There is deliberately no inexact
- * fallback: an alarm set with [AlarmManager.setAndAllowWhileIdle] targets a
- * whole-minute window and fires up to a minute late — unacceptable for a timer.
- * The caller is responsible for checking [canScheduleExactAlarms] and asking the
- * user for the access before scheduling; [schedule] refuses silently otherwise.
+ * A kitchen timer must fire on time, so the alarm is set as an *alarm clock*
+ * ([AlarmManager.setAlarmClock]), the strongest delivery contract AlarmManager
+ * offers: the system exits Doze shortly before it and does not treat it as a
+ * deferrable background alarm. This replaced [AlarmManager.setExactAndAllowWhileIdle]
+ * after a physical-device measurement: on OnePlus/OxygenOS that call was accepted
+ * with exact-alarm permission but registered with a delivery window (`dumpsys
+ * alarm`: `window=+45s`, `maxWhenElapsed=trigger+45s`) and fired tens of seconds
+ * late. The caller still checks [canScheduleExactAlarms] before scheduling; either
+ * API requires that access, and [schedule] refuses silently without it.
  */
 class CookTimerAlarms(private val context: Context) : CookTimerScheduler {
 
@@ -41,18 +45,35 @@ class CookTimerAlarms(private val context: Context) : CookTimerScheduler {
     }
 
     /**
-     * Schedules (or reschedules) the exact completion alarm for [timer]. No-op
-     * when exact alarms are not permitted — the caller must not have produced the
-     * timer in that case, and a silently-inexact alarm is exactly the bug this
-     * class refuses to reintroduce.
+     * Schedules (or reschedules) the completion alarm for [timer] as an alarm
+     * clock whose wall-clock trigger is the timer's deadline. No-op when exact
+     * alarms are not permitted — the caller must not have produced the timer in
+     * that case, and a silently-inexact alarm is exactly the bug this class
+     * refuses to reintroduce.
      */
     override fun schedule(timer: ActiveTimer) {
         val manager = context.getSystemService<AlarmManager>() ?: return
         if (!canScheduleExactAlarms()) return
         val triggerAt = wallTriggerAt(timer.deadlineMillis, SystemClock.elapsedRealtime(), System.currentTimeMillis())
         val pending = pendingIntent(context, timer, PendingIntent.FLAG_UPDATE_CURRENT)
-        manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
+        manager.setAlarmClock(AlarmManager.AlarmClockInfo(triggerAt, showIntent(context)), pending)
     }
+
+    /**
+     * The activity intent the system may launch when the user taps the alarm-clock
+     * entry this timer produces (status bar / lock screen). Deliberately minimal:
+     * it just opens Mealio. One shared instance, independent of any timer — it is a
+     * launcher, not a per-timer handle.
+     */
+    private fun showIntent(context: Context): PendingIntent =
+        PendingIntent.getActivity(
+            context,
+            SHOW_REQUEST_CODE,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            },
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
 
     /** Cancels the alarm (and any shown notification) for a removed timer. */
     override fun cancel(timerId: Long) {
@@ -80,6 +101,9 @@ class CookTimerAlarms(private val context: Context) : CookTimerScheduler {
         alarmPendingIntent(context, timerId, stepNumber, extraFlags)
 
     companion object {
+        /** Request code of the shared "open Mealio" intent used as the alarm-clock show intent. */
+        private const val SHOW_REQUEST_CODE = 0
+
         /**
          * The broadcast intent that fires one timer's completion alarm. Its identity
          * is the (request code, data URI) pair — the request code from the timer id

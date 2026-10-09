@@ -1,6 +1,7 @@
 package com.arttvad9r.mealio.cook
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -16,6 +17,7 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.domain.cook.ActiveTimer
 import com.arttvad9r.mealio.domain.cook.alarmRequestCode
+import com.arttvad9r.mealio.domain.cook.wallTriggerAt
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
@@ -52,6 +54,7 @@ class CookTimerIntegrationTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
     private val notifications = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+    private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val alarms = CookTimerAlarms(context)
 
     /** Test-only ids, far from the monotonic ids production hands out. */
@@ -102,6 +105,27 @@ class CookTimerIntegrationTest {
         assertTrue(
             "the scheduled alarm must be visible to the system",
             shell("dumpsys alarm").contains(context.packageName),
+        )
+    }
+
+    @Test
+    fun withExactAlarmAccess_theTimerIsRegisteredAsAnAlarmClockAtItsDeadline() {
+        grantExactAlarmAccess()
+        val id = ids[1]
+        val timer = runningTimer(id, seconds = 60)
+        val expected = wallTriggerAt(timer.deadlineMillis, SystemClock.elapsedRealtime(), System.currentTimeMillis())
+
+        alarms.schedule(timer)
+
+        // getNextAlarmClock() reports only alarms installed through setAlarmClock(),
+        // so a non-null result is itself the proof that the alarm-clock path — not
+        // setExactAndAllowWhileIdle — was taken. No reflection needed.
+        val next = alarmManager.nextAlarmClock
+        assertNotNull("the timer must be registered as an alarm clock", next)
+        val delta = Math.abs(next!!.triggerTime - expected)
+        assertTrue(
+            "alarm-clock trigger must match the timer deadline (delta=${delta}ms)",
+            delta <= 500L,
         )
     }
 
@@ -191,12 +215,21 @@ class CookTimerIntegrationTest {
     fun schedule_createsPendingIntent_thenCancelRemovesIt() {
         grantExactAlarmAccess()
         val id = ids[5]
-        alarms.schedule(runningTimer(id, seconds = 60))
+        val timer = runningTimer(id, seconds = 60)
+        val trigger = wallTriggerAt(timer.deadlineMillis, SystemClock.elapsedRealtime(), System.currentTimeMillis())
+        alarms.schedule(timer)
 
         assertNotNull("schedule must leave an alarm PendingIntent behind", existing(id))
 
         alarms.cancel(id)
         assertNull("cancel must remove the alarm PendingIntent", existing(id))
+
+        // A cancel of the alarm clock must also drop it from the system's next alarm.
+        val next = alarmManager.nextAlarmClock
+        assertTrue(
+            "cancelled timer must not remain the system's next alarm clock",
+            next == null || next.triggerTime != trigger,
+        )
     }
 
     // --- F. Receiver isolation -------------------------------------------------
