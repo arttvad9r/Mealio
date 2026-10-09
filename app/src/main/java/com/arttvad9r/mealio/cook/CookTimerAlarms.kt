@@ -20,10 +20,12 @@ import com.arttvad9r.mealio.domain.cook.wallTriggerAt
  * coroutine cannot do that — it stops with the process — so the finish alert is
  * driven by the system alarm, and this class owns nothing else.
  *
- * Exact alarms need a user-granted special access from Android 12. Cook Mode asks
- * for it contextually (see CookModeScreen) and degrades gracefully: without it the
- * alarm is still set with the inexact, doze-friendly API, which may fire late but
- * is never silently dropped.
+ * A kitchen timer must fire on time, so only the exact API is used
+ * ([AlarmManager.setExactAndAllowWhileIdle]). There is deliberately no inexact
+ * fallback: an alarm set with [AlarmManager.setAndAllowWhileIdle] targets a
+ * whole-minute window and fires up to a minute late — unacceptable for a timer.
+ * The caller is responsible for checking [canScheduleExactAlarms] and asking the
+ * user for the access before scheduling; [schedule] refuses silently otherwise.
  */
 class CookTimerAlarms(private val context: Context) : CookTimerScheduler {
 
@@ -32,16 +34,24 @@ class CookTimerAlarms(private val context: Context) : CookTimerScheduler {
         CookTimerNotifications.ensureChannel(context)
     }
 
-    /** Schedules (or reschedules) the completion alarm for [timer]. */
+    /** True on Android 12+ only once the user granted the "alarms & reminders" access. */
+    override fun canScheduleExactAlarms(): Boolean {
+        val manager = context.getSystemService<AlarmManager>() ?: return false
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()
+    }
+
+    /**
+     * Schedules (or reschedules) the exact completion alarm for [timer]. No-op
+     * when exact alarms are not permitted — the caller must not have produced the
+     * timer in that case, and a silently-inexact alarm is exactly the bug this
+     * class refuses to reintroduce.
+     */
     override fun schedule(timer: ActiveTimer) {
         val manager = context.getSystemService<AlarmManager>() ?: return
+        if (!canScheduleExactAlarms()) return
         val triggerAt = wallTriggerAt(timer.deadlineMillis, SystemClock.elapsedRealtime(), System.currentTimeMillis())
         val pending = pendingIntent(context, timer, PendingIntent.FLAG_UPDATE_CURRENT)
-        if (canScheduleExact(manager)) {
-            manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
-        } else {
-            manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
-        }
+        manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAt, pending)
     }
 
     /** Cancels the alarm (and any shown notification) for a removed timer. */
@@ -52,9 +62,6 @@ class CookTimerAlarms(private val context: Context) : CookTimerScheduler {
         pending.cancel()
         CookTimerNotifications.cancel(context, timerId)
     }
-
-    private fun canScheduleExact(manager: AlarmManager): Boolean =
-        Build.VERSION.SDK_INT < Build.VERSION_CODES.S || manager.canScheduleExactAlarms()
 
     private fun pendingIntent(context: Context, timer: ActiveTimer, extraFlags: Int): PendingIntent =
         pendingIntent(

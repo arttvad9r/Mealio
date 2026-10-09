@@ -42,6 +42,11 @@ data class TimerEditorState(
  * injected interface, so these rules are unit-tested against a fake and no Android
  * class is needed.
  *
+ * A kitchen timer must fire on time, so a timer is started only when the
+ * platform will schedule it exactly: if exact-alarm access is missing, [start]
+ * creates nothing and raises [exactAlarmRequired] instead, and the screen explains
+ * how to grant it. There is no inexact fallback timer.
+ *
  * A timer is only ever created by [start] / [startFromEditor]; the editor never
  * starts anything on its own, and [cancelEditor] starts nothing at all.
  */
@@ -61,6 +66,15 @@ class CookTimerViewModel(
     private val _editor = MutableStateFlow(TimerEditorState())
     val editor: StateFlow<TimerEditorState> = _editor.asStateFlow()
 
+    /**
+     * True while the user tried to start a timer without granting Android the
+     * "alarms & reminders" special access. The screen reacts by explaining the
+     * requirement and offering the system screen; the platform can never schedule
+     * an accurate timer until it is granted.
+     */
+    private val _exactAlarmRequired = MutableStateFlow(false)
+    val exactAlarmRequired: StateFlow<Boolean> = _exactAlarmRequired.asStateFlow()
+
     private var tickJob: Job? = null
 
     /** Opens the editor at [initialSeconds]. Starting nothing until the user confirms. */
@@ -73,21 +87,48 @@ class CookTimerViewModel(
         _editor.value = TimerEditorState(session = _editor.value.session)
     }
 
-    /** Confirms the editor: creates exactly one timer and closes the editor. */
+    /**
+     * Confirms the editor. Requires exact-alarm access: without it the editor
+     * stays open and [exactAlarmRequired] turns on, so the user can grant the
+     * access and confirm again — no late timer is ever silently created.
+     */
     fun startFromEditor(totalSeconds: Long, stepNumber: Int) {
-        start(totalSeconds, stepNumber)
+        if (!start(totalSeconds, stepNumber)) return
         _editor.value = TimerEditorState(session = _editor.value.session)
     }
 
-    /** Starts a new timer for [seconds], tied to [stepNumber] for its label. */
-    fun start(seconds: Long, stepNumber: Int) {
-        if (seconds <= 0) return
+    /**
+     * Starts a new timer for [seconds], tied to [stepNumber] for its label.
+     * Returns false and raises [exactAlarmRequired] when the platform would not
+     * schedule it exactly; otherwise a timer is created and scheduled.
+     */
+    fun start(seconds: Long, stepNumber: Int): Boolean {
+        if (seconds <= 0) return false
+        if (!scheduler.canScheduleExactAlarms()) {
+            _exactAlarmRequired.value = true
+            return false
+        }
         val before = _timers.value.items.map { it.id }.toSet()
         _timers.update { it.start(seconds, stepNumber, clock()) }
         _timers.value.items.firstOrNull { it.id !in before }?.let { started ->
             scheduler.schedule(started)
         }
         resumeTicking()
+        return true
+    }
+
+    /**
+     * The screen just came back from the "alarms & reminders" system page: if the
+     * access is now granted, clear the explanation. The editor stays open, so the
+     * user simply confirms again.
+     */
+    fun onExactAlarmAccessChecked() {
+        if (scheduler.canScheduleExactAlarms()) _exactAlarmRequired.value = false
+    }
+
+    /** The user dismissed the explanation without granting anything. */
+    fun dismissExactAlarmRequired() {
+        _exactAlarmRequired.value = false
     }
 
     fun remove(id: Long) {
@@ -98,6 +139,12 @@ class CookTimerViewModel(
     /** Runs the same length again as a fresh timer, replacing the finished one. */
     fun restart(id: Long) {
         val timer = _timers.value.items.firstOrNull { it.id == id } ?: return
+        // A restart needs exact access just like a fresh start; bail before touching
+        // the existing timer so the screen can explain the requirement.
+        if (!scheduler.canScheduleExactAlarms()) {
+            _exactAlarmRequired.value = true
+            return
+        }
         // Drop the stale schedule and any shown notification, then replace the
         // finished timer so its row does not linger next to the new one. The new
         // timer gets a fresh id and therefore a fresh, independent alarm.

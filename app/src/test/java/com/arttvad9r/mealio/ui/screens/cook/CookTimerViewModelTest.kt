@@ -20,9 +20,11 @@ import org.junit.Before
 import org.junit.Test
 
 /** Records what the ViewModel asks the platform to schedule, with no Android. */
-private class RecordingScheduler : CookTimerScheduler {
+private class RecordingScheduler(var exactPermitted: Boolean = true) : CookTimerScheduler {
     val scheduled = mutableListOf<ActiveTimer>()
     val cancelled = mutableListOf<Long>()
+
+    override fun canScheduleExactAlarms(): Boolean = exactPermitted
 
     override fun schedule(timer: ActiveTimer) {
         scheduled += timer
@@ -187,6 +189,52 @@ class CookTimerViewModelTest {
         vm.refresh()
         assertTrue(timer.isFinished(vm.now.value))
         assertEquals(0L, timer.remainingSeconds(vm.now.value))
+    }
+
+    // --- Exact-alarm requirement -------------------------------------------------
+
+    @Test
+    fun `without exact-alarm access no timer starts and the requirement is raised`() {
+        scheduler.exactPermitted = false
+        val vm = viewModel()
+        vm.openEditor(5 * 60L)
+
+        vm.startFromEditor(5 * 60L, stepNumber = 1)
+
+        assertTrue(vm.timers.value.items.isEmpty())
+        assertTrue(scheduler.scheduled.isEmpty())
+        assertTrue("the screen must be told to explain the access", vm.exactAlarmRequired.value)
+        // The editor stays open so the user can grant the access and confirm again.
+        assertTrue(vm.editor.value.visible)
+    }
+
+    @Test
+    fun `after the access is granted the same editor start succeeds`() {
+        scheduler.exactPermitted = false
+        val vm = viewModel()
+        vm.openEditor(5 * 60L)
+        vm.startFromEditor(5 * 60L, 1)
+        assertTrue(vm.exactAlarmRequired.value)
+
+        // The user granted the access in the system screen; we re-check on return.
+        scheduler.exactPermitted = true
+        vm.onExactAlarmAccessChecked()
+        assertFalse(vm.exactAlarmRequired.value)
+
+        vm.startFromEditor(5 * 60L, 1)
+        assertEquals(1, vm.timers.value.items.size)
+        assertEquals(1, scheduler.scheduled.size)
+    }
+
+    @Test
+    fun `with exact access a timer starts normally and raises nothing`() {
+        val vm = viewModel()
+        vm.openEditor(5 * 60L)
+
+        vm.startFromEditor(5 * 60L, 1)
+
+        assertEquals(1, vm.timers.value.items.size)
+        assertFalse(vm.exactAlarmRequired.value)
     }
 
     private fun step(suggestion: TimerSuggestion?): CookStep =

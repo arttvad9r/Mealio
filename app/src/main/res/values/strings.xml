@@ -135,6 +135,9 @@
     <string name="cook_channel_description">Notifies you when a cooking timer finishes</string>
     <string name="cook_notification_title">Timer finished</string>
     <string name="cook_notification_body">Step %1$d</string>
+    <string name="cook_exact_alarm_title">Allow exact timers</string>
+    <string name="cook_exact_alarm_message">Android must allow Mealio to set exact alarms, otherwise a cooking timer could fire late. Open the settings and turn on “Alarms &amp; reminders”, then start the timer again.</string>
+    <string name="cook_exact_alarm_open_settings">Open settings</string>
     <string name="duration_seconds">%1$d s</string>
     <plurals name="shopping_remaining">
         <item quantity="one">Remaining: %d item</item>

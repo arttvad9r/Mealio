@@ -7,11 +7,12 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import androidx.core.app.NotificationManagerCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
-import androidx.core.app.NotificationManagerCompat
 import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.domain.cook.ActiveTimer
 import com.arttvad9r.mealio.domain.cook.alarmRequestCode
@@ -32,12 +33,19 @@ import org.junit.runner.RunWith
  *
  * Only public system APIs are used — no reflection, no internal AlarmManager
  * introspection. "Is an alarm scheduled" is answered through PendingIntent
- * identity/existence, which is what actually distinguishes one timer from another.
+ * identity/existence, which is what distinguishes one timer from another.
  *
- * Exact-alarm special access is deliberately NOT requested here: the emulator has
- * no way to grant it in a reproducible, non-interactive way, so the suite runs on
- * the inexact fallback path (the same path a user without the access gets). Nothing
- * below depends on the access being granted.
+ * The exact-alarm special access is the one switch that cannot be driven safely
+ * from inside the test process: Android kills a running app the instant its
+ * SCHEDULE_EXACT_ALARM access is REVOKED, and the instrumentation runs in that same
+ * process — a revoke aborts the whole suite (`ActivityManager: Killing … :
+ * schedule_exact_alarm revoked`), it does not fail one assertion. So this suite only
+ * ever GRANTS the access (a no-op, kill-wise) and asserts the exact scheduling path
+ * it enables. The complementary half of the policy — that NO inexact, late alarm is
+ * ever scheduled when the access is missing — is a pure decision in the ViewModel
+ * and is covered by the unit test `without exact-alarm access no timer starts and
+ * the requirement is raised`, against the same
+ * [com.arttvad9r.mealio.domain.cook.CookTimerScheduler] interface.
  */
 @RunWith(AndroidJUnit4::class)
 class CookTimerIntegrationTest {
@@ -47,7 +55,7 @@ class CookTimerIntegrationTest {
     private val alarms = CookTimerAlarms(context)
 
     /** Test-only ids, far from the monotonic ids production hands out. */
-    private val ids = (1..8).map { BASE + it }
+    private val ids = (1..9).map { BASE + it }
 
     @Before
     fun grantNotifications() {
@@ -69,14 +77,53 @@ class CookTimerIntegrationTest {
     @After
     fun cleanup() {
         // Leave no alarm, notification or pending intent behind for the next test
-        // or the next run: every id this class touches is cancelled here.
+        // or the next run: every id this class touches is cancelled here. The
+        // exact-alarm app-op is deliberately left as granted — revoking it would
+        // kill the instrumentation process (see the class doc), and the emulator
+        // this suite runs on is torn down afterwards anyway.
         ids.forEach { id ->
             alarms.cancel(id)
             CookTimerNotifications.cancel(context, id)
         }
     }
 
-    // --- A. Notification channel ----------------------------------------------
+    // --- A. Exact-alarm scheduling path ----------------------------------------
+
+    @Test
+    fun withExactAlarmAccess_anExactAlarmIsRegisteredForTheTimer() {
+        grantExactAlarmAccess()
+        assertTrue("precondition: exact access must be on", alarms.canScheduleExactAlarms())
+
+        val id = ids[0]
+        alarms.schedule(runningTimer(id, seconds = 60))
+
+        assertNotNull("an exact-access timer must be scheduled", existing(id))
+        // The system really holds it: the package shows up in the alarm dump.
+        assertTrue(
+            "the scheduled alarm must be visible to the system",
+            shell("dumpsys alarm").contains(context.packageName),
+        )
+    }
+
+    @Test
+    fun reschedulingTheSameId_replacesTheAlarmInsteadOfAddingASecond() {
+        grantExactAlarmAccess()
+        val id = ids[6]
+        alarms.schedule(runningTimer(id, seconds = 60))
+        val first = existing(id)!!
+
+        // Same timer id, new deadline: identity is preserved, so the scheduler
+        // replaces the alarm rather than leaving an orphan behind.
+        alarms.schedule(runningTimer(id, seconds = 120))
+        val second = existing(id)!!
+
+        assertEquals("rescheduling must keep the same PendingIntent identity", first, second)
+
+        alarms.cancel(id)
+        assertNull("a single cancel must clear the one alarm for this id", existing(id))
+    }
+
+    // --- B. Notification channel ----------------------------------------------
 
     @Test
     fun channel_isCreatedWithAlarmLikeImportanceVibrationAndSound() {
@@ -97,11 +144,11 @@ class CookTimerIntegrationTest {
         assertNotNull("channel sound must not be disabled by the app", channel.sound)
     }
 
-    // --- B. Receiver -> notification -------------------------------------------
+    // --- C. Receiver -> notification -------------------------------------------
 
     @Test
     fun receiver_postsLocalizedNotificationForItsStep() {
-        val id = ids[0]
+        val id = ids[2]
         val step = 2
 
         CookTimerReceiver().onReceive(context, completionIntent(id, step))
@@ -118,12 +165,12 @@ class CookTimerIntegrationTest {
         assertNull("cancel must clear the posted notification", awaitNoNotification(id))
     }
 
-    // --- C. Independent timer ids ---------------------------------------------
+    // --- D. Independent timer ids ---------------------------------------------
 
     @Test
     fun twoTimers_haveDistinctPendingIntentsAndCancelIndependently() {
-        val a = ids[1]
-        val b = ids[2]
+        val a = ids[3]
+        val b = ids[4]
 
         val pendingA = CookTimerAlarms.alarmPendingIntent(context, a, stepNumber = 1, PendingIntent.FLAG_UPDATE_CURRENT)!!
         val pendingB = CookTimerAlarms.alarmPendingIntent(context, b, stepNumber = 1, PendingIntent.FLAG_UPDATE_CURRENT)!!
@@ -138,11 +185,12 @@ class CookTimerIntegrationTest {
         assertNull(existing(b))
     }
 
-    // --- D. Schedule / cancel --------------------------------------------------
+    // --- E. Schedule / cancel --------------------------------------------------
 
     @Test
     fun schedule_createsPendingIntent_thenCancelRemovesIt() {
-        val id = ids[3]
+        grantExactAlarmAccess()
+        val id = ids[5]
         alarms.schedule(runningTimer(id, seconds = 60))
 
         assertNotNull("schedule must leave an alarm PendingIntent behind", existing(id))
@@ -151,42 +199,14 @@ class CookTimerIntegrationTest {
         assertNull("cancel must remove the alarm PendingIntent", existing(id))
     }
 
-    @Test
-    fun schedule_withoutExactAlarmAccess_doesNotThrowAndStillSchedules() {
-        // The emulator grants no exact-alarm access, so this exercises the inexact,
-        // doze-friendly fallback — the path an access-less user is on.
-        val id = ids[4]
-        alarms.schedule(runningTimer(id, seconds = 60))
-        assertNotNull(existing(id))
-    }
-
-    // --- E. Restart ------------------------------------------------------------
-
-    @Test
-    fun reschedulingTheSameId_replacesTheAlarmInsteadOfAddingASecond() {
-        val id = ids[5]
-        alarms.schedule(runningTimer(id, seconds = 60))
-        val first = existing(id)!!
-
-        // Same timer id, new deadline: identity is preserved, so the scheduler
-        // replaces the alarm rather than leaving an orphan behind.
-        alarms.schedule(runningTimer(id, seconds = 120))
-        val second = existing(id)!!
-
-        assertEquals("rescheduling must keep the same PendingIntent identity", first, second)
-
-        alarms.cancel(id)
-        assertNull("a single cancel must clear the one alarm for this id", existing(id))
-    }
-
     // --- F. Receiver isolation -------------------------------------------------
 
     @Test
     fun completionOfOneTimer_doesNotCarryAnotherTimersData() {
-        val a = ids[6]
-        val b = ids[7]
+        grantExactAlarmAccess()
+        val a = ids[7]
         // B exists with its own scheduled alarm and a different step…
-        alarms.schedule(runningTimer(b, seconds = 300, stepNumber = 5))
+        alarms.schedule(runningTimer(ids[8], seconds = 300, stepNumber = 5))
 
         // …but only A completes.
         CookTimerReceiver().onReceive(context, completionIntent(a, step = 1))
@@ -197,12 +217,33 @@ class CookTimerIntegrationTest {
             context.getString(R.string.cook_notification_body, 1),
             forA!!.extras.getCharSequence(Notification.EXTRA_TEXT)?.toString(),
         )
-        assertNull("B's completion must not be posted when only A fired", activeNotification(b))
+        assertNull("B's completion must not be posted when only A fired", activeNotification(ids[8]))
         // B's alarm is untouched by A's completion.
-        assertNotNull(existing(b))
+        assertNotNull(existing(ids[8]))
     }
 
     // --- helpers ---------------------------------------------------------------
+
+    /**
+     * Grants the "alarms & reminders" special access exactly as the system Settings
+     * page does, via the shell app-op, then waits (bounded) until it is visible
+     * through the public API. Granting never kills the process — only revoking
+     * does — so this is safe to call mid-suite. Fails loudly if it never takes
+     * effect, so a test can never silently run without the access it needs.
+     */
+    private fun grantExactAlarmAccess() {
+        shell("appops set ${context.packageName} SCHEDULE_EXACT_ALARM allow")
+        val deadline = SystemClock.elapsedRealtime() + 5_000L
+        while (!alarms.canScheduleExactAlarms() && SystemClock.elapsedRealtime() < deadline) {
+            Thread.sleep(50L)
+        }
+    }
+
+    /** Runs a shell command as the instrumentation's shell user and returns its output. */
+    private fun shell(command: String): String {
+        val pfd = InstrumentationRegistry.getInstrumentation().uiAutomation.executeShellCommand(command)
+        return ParcelFileDescriptor.AutoCloseInputStream(pfd).bufferedReader().use { it.readText() }
+    }
 
     private fun runningTimer(id: Long, seconds: Long, stepNumber: Int = 1) = ActiveTimer(
         id = id,

@@ -137,6 +137,9 @@
     <string name="cook_channel_description">Сообщает, когда кухонный таймер завершён</string>
     <string name="cook_notification_title">Таймер завершён</string>
     <string name="cook_notification_body">Шаг %1$d</string>
+    <string name="cook_exact_alarm_title">Разрешите точные таймеры</string>
+    <string name="cook_exact_alarm_message">Android должен разрешить Mealio ставить точные будильники, иначе кухонный таймер может сработать с опозданием. Откройте настройки, включите «Будильники и напоминания» и запустите таймер снова.</string>
+    <string name="cook_exact_alarm_open_settings">Открыть настройки</string>
     <string name="duration_seconds">%1$d с</string>
     <plurals name="shopping_remaining">
         <item quantity="one">Осталось: %d позиция</item>

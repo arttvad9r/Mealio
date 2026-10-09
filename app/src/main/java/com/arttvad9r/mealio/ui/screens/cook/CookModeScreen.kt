@@ -2,7 +2,6 @@ package com.arttvad9r.mealio.ui.screens.cook
 
 import android.Manifest
 import android.app.Activity
-import android.app.AlarmManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -35,6 +34,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.Button
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -66,7 +66,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.createSavedStateHandle
@@ -109,6 +108,7 @@ fun CookModeScreen(
     val timers by viewModel.timers.collectAsStateWithLifecycle()
     val now by viewModel.now.collectAsStateWithLifecycle()
     val editor by viewModel.editor.collectAsStateWithLifecycle()
+    val exactAlarmRequired by viewModel.exactAlarmRequired.collectAsStateWithLifecycle()
 
     // Timers survive leaving the screen only within this session; refresh on the
     // way back in so a background/foreground round-trip does not freeze them.
@@ -119,25 +119,43 @@ fun CookModeScreen(
     // the finish alert can surface while the app is backgrounded.
     RequestNotificationPermission()
 
-    // Exact alarms need the "Alarms & reminders" special access on Android 12+. We
-    // ask once, the first time the user starts a timer, and only if it is missing;
-    // until then the alarm still fires, just without the exact-timing guarantee.
-    var askedExactAlarm by rememberSaveable { mutableStateOf(false) }
+    // Exact alarms need the "alarms & reminders" special access on Android 12+;
+    // it is not granted by default on Android 14+. A kitchen timer must fire on
+    // time, so when the access is missing the start is refused and this dialog
+    // explains how to grant it — no inexact, late alarm is ever used. Nothing is
+    // asked at app launch or screen entry; the request appears only at the moment
+    // the user first tries to start a timer without the access.
     val exactAlarmLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult(),
-    ) { /* granted or not: the timer runs either way */ }
-    val requestExactAlarmAccess = {
-        val manager = context.getSystemService<AlarmManager>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            !askedExactAlarm &&
-            manager?.canScheduleExactAlarms() == false
-        ) {
-            askedExactAlarm = true
-            exactAlarmLauncher.launch(
-                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
-                    .setData("package:${context.packageName}".toUri()),
-            )
-        }
+    ) { viewModel.onExactAlarmAccessChecked() }
+    val openExactAlarmSettings = {
+        exactAlarmLauncher.launch(
+            Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                .setData("package:${context.packageName}".toUri()),
+        )
+    }
+    if (exactAlarmRequired) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissExactAlarmRequired,
+            shape = Radius.card,
+            title = { Text(stringResource(R.string.cook_exact_alarm_title)) },
+            text = { Text(stringResource(R.string.cook_exact_alarm_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.dismissExactAlarmRequired()
+                        openExactAlarmSettings()
+                    },
+                ) {
+                    Text(stringResource(R.string.cook_exact_alarm_open_settings))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissExactAlarmRequired) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
     }
 
     // Keep the screen awake while cooking, and release it on exit — but only if
@@ -226,7 +244,6 @@ fun CookModeScreen(
                 onOpen = { viewModel.openEditor(suggestionSeconds(step)) },
                 onCancel = viewModel::cancelEditor,
                 onStart = { seconds ->
-                    requestExactAlarmAccess()
                     viewModel.startFromEditor(seconds, position + 1)
                 },
             )
