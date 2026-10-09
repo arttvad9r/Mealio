@@ -125,6 +125,7 @@
     <string name="cook_timer_remove_cd">Удалить таймер</string>
     <string name="cook_setup_decrease_cd">На минуту меньше</string>
     <string name="cook_setup_increase_cd">На минуту больше</string>
+    <string name="cook_setup_start_cd">Запустить таймер</string>
     <string name="cook_add_timer">+ Таймер</string>
     <string name="cook_less_timers">Свернуть</string>
     <plurals name="cook_more_timers">

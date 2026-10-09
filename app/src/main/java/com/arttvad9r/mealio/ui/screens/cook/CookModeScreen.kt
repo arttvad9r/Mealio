@@ -182,15 +182,15 @@ fun CookModeScreen(
                     color = MaterialTheme.colorScheme.onBackground,
                 )
                 Spacer(Modifier.size(Space.l))
-                TimerSetupArea(
-                    step = step,
-                    stepNumber = position + 1,
+                AutomaticTimerSetups(
+                    suggestions = step.suggestions,
                     onStart = { seconds -> viewModel.start(seconds, position + 1) },
                 )
             }
 
-            // Active timers sit at the bottom, directly above the navigation, so
-            // their number never moves the instruction.
+            // Global timer area, pinned above the navigation: the running timers
+            // and the manual "+ Timer" fallback both live here, so how many are
+            // running never moves the instruction at the top.
             if (timers.items.isNotEmpty()) {
                 Spacer(Modifier.size(Space.m))
                 ActiveTimersPanel(
@@ -200,6 +200,10 @@ fun CookModeScreen(
                     onRestart = viewModel::restart,
                 )
             }
+            Spacer(Modifier.size(Space.s))
+            ManualTimerArea(
+                onStart = { seconds -> viewModel.start(seconds, position + 1) },
+            )
 
             Spacer(Modifier.size(Space.l))
             Row(
@@ -243,34 +247,49 @@ private fun RequestNotificationPermission() {
 }
 
 /**
- * The timer area under the instruction: one editable setup per time the step
- * names (a range is one setup, opening at its lower bound), plus a "+ Timer"
- * action to add a manual one. Kept inline and compact — no dialog and no picker.
+ * The automatic timer setups for the current step: one editable setup per time
+ * the step names (a range is one setup, opening at its lower bound). These belong
+ * to the instruction, so they stay directly under it. The manual "+ Timer"
+ * fallback lives in the bottom timer area instead.
  */
 @Composable
-private fun TimerSetupArea(
-    step: CookStep,
-    stepNumber: Int,
+private fun AutomaticTimerSetups(
+    suggestions: List<TimerSuggestion>,
     onStart: (Long) -> Unit,
 ) {
-    var manual by rememberSaveable { mutableStateOf(false) }
-    val showAdd = step.suggestions.isEmpty() || manual
-
     Column(verticalArrangement = Arrangement.spacedBy(Space.s)) {
-        step.suggestions.forEachIndexed { i, suggestion ->
+        suggestions.forEachIndexed { i, suggestion ->
             key(i) {
                 TimerSetupRow(
                     initial = TimerSetup.initialFor(suggestion),
-                    onStart = { onStart(it) },
+                    onStart = onStart,
                 )
             }
         }
-        if (showAdd) {
-            TimerSetupRow(initial = TimerSetup.MANUAL, onStart = { onStart(it) })
-        } else {
-            TextButton(onClick = { manual = true }) {
-                Text(stringResource(R.string.cook_add_timer))
-            }
+    }
+}
+
+/**
+ * The manual timer affordance in the bottom timer area, always present: tapping
+ * "+ Timer" reveals the same inline setup used for automatic suggestions, opening
+ * at a neutral 05:00. Starting one creates an ordinary ActiveTimer and the action
+ * becomes available again, so several manual timers can be added in a row.
+ */
+@Composable
+private fun ManualTimerArea(onStart: (Long) -> Unit) {
+    var manual by rememberSaveable { mutableStateOf(false) }
+
+    if (manual) {
+        TimerSetupRow(
+            initial = TimerSetup.MANUAL,
+            onStart = { seconds ->
+                onStart(seconds)
+                manual = false
+            },
+        )
+    } else {
+        TextButton(onClick = { manual = true }) {
+            Text(stringResource(R.string.cook_add_timer))
         }
     }
 }
@@ -321,9 +340,11 @@ private fun TimerSetupRow(
             Icon(Icons.Filled.Add, contentDescription = null)
         }
         FilledTonalButton(onClick = { onStart(setup.totalSeconds) }) {
-            Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(Space.s))
-            Text(label)
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = stringResource(R.string.cook_setup_start_cd),
+                modifier = Modifier.size(IconSize.action),
+            )
         }
     }
 }
