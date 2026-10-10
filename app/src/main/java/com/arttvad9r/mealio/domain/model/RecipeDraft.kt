@@ -39,8 +39,10 @@ data class IngredientRef(val id: String, val name: String)
  * (db/models/_model_utils/auto_init.py, the MANYTOONE branch does `val.get("id")` and
  * raises `ValueError: Expected 'id' to be provided for unit` for a name-only reference —
  * the HTTP 500 of the first smoke test). [withResolvedRefs] turns them into the existing
- * Mealie [unitRef]/[foodRef]; when neither name resolves, the whole line degrades to the
- * note-only fallback.
+ * Mealie [unitRef]/[foodRef]; it is all-or-nothing: if any name the parser reported does
+ * not resolve, the whole line degrades to the note-only fallback, because dropping one
+ * relation would silently write a partial reading (the second smoke test kept
+ * `quantity=500` + `unit=грамм` after losing the food "куриного филе").
  *
  * [quantity], [note] and [originalText] are written whenever the line is structured
  * ([isStructured]); a line without a resolved reference is written note-only, as the
@@ -68,17 +70,20 @@ data class RecipeIngredientDraft(
         get() = unitName != null || foodName != null
 
     /**
-     * Applies the references the server lookup found. A line whose parser suggestions
-     * could not be resolved to existing Mealie entities is kept as the user's original
-     * line (note-only): writing a made-up unit/food, or a quantity without one, is what
-     * broke the first physical smoke test.
+     * Applies the references the server lookup found, enforcing the invariant that *every*
+     * relation the parser reported has to resolve — an absent relation is not a relation,
+     * but a reported one that stays unresolved invalidates the whole reading. Partial
+     * structure is never written: the line becomes the user's original text, note-only.
      */
-    fun withResolvedRefs(unitRef: IngredientRef?, foodRef: IngredientRef?): RecipeIngredientDraft =
-        if (unitRef == null && foodRef == null) {
-            fallback(originalText)
-        } else {
+    fun withResolvedRefs(unitRef: IngredientRef?, foodRef: IngredientRef?): RecipeIngredientDraft {
+        val unitResolved = unitName == null || unitRef != null
+        val foodResolved = foodName == null || foodRef != null
+        return if (unitResolved && foodResolved) {
             copy(unitRef = unitRef, foodRef = foodRef, unitName = null, foodName = null)
+        } else {
+            fallback(originalText)
         }
+    }
 
     companion object {
         /** The safe fallback for a line the parser did not (or could not) structure. */

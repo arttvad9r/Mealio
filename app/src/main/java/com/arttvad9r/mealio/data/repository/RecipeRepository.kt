@@ -14,6 +14,7 @@ import com.arttvad9r.mealio.domain.model.ParsedIngredient
 import com.arttvad9r.mealio.domain.model.RecipeDetail
 import com.arttvad9r.mealio.domain.model.RecipeDraft
 import com.arttvad9r.mealio.domain.model.RecipeSummary
+import com.arttvad9r.mealio.domain.recipe.normalizeIngredientText
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -242,13 +243,10 @@ internal data class NamedRef(val id: String?, val name: String?)
 /**
  * Normalized key for comparing a parser name with a Mealie entity name: trimmed,
  * case-folded and with runs of whitespace collapsed, plus `ё` folded to `е` (Mealie
- * normalizes names the same way before storing them).
+ * normalizes names the same way before storing them). The domain owns the rule, because
+ * the unit sanity layer compares against the user's own line with it too.
  */
-internal fun refNameKey(value: String?): String = value.orEmpty()
-    .trim()
-    .lowercase()
-    .replace('ё', 'е')
-    .replace(Regex("\\s+"), " ")
+internal fun refNameKey(value: String?): String = normalizeIngredientText(value)
 
 /**
  * The existing entity whose name matches [name] exactly, or null when nothing does. The

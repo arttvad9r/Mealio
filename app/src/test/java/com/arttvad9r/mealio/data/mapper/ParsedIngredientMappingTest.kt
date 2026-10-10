@@ -5,6 +5,7 @@ import com.arttvad9r.mealio.data.remote.dto.ParseIngredientsRequest
 import com.arttvad9r.mealio.data.remote.dto.ParsedIngredientDto
 import com.arttvad9r.mealio.domain.model.IngredientRef
 import com.arttvad9r.mealio.domain.model.ParsedIngredient
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -92,25 +93,25 @@ class ParsedIngredientMappingTest {
     }
 
     @Test
-    fun `the decoded response is best-effort safe for the create flow`() {
+    fun `the decoded response is best-effort safe for the create flow`() = runTest {
         // The whole chain: real JSON -> DTO -> domain -> drafts (still unresolved), then
-        // the reference lookup: the unit resolves, the echoed free-text "food" does not,
-        // so the first line survives as a structured ingredient and the second one stays
-        // note-only.
+        // the reference lookup. The unit resolves but the free-text "food" the parser
+        // echoed back does not, so the first line must not keep half of its reading: it
+        // degrades to the user's line, note-only, exactly like the second one.
         val parsed: List<ParsedIngredient> = decode().map { it.toDomain() }
-        val resolved = com.arttvad9r.mealio.domain.recipe.prepareIngredientDrafts(
-            lines = listOf("500 г куриного филе", "соль по вкусу"),
-            parsed = parsed,
+        val drafts = com.arttvad9r.mealio.domain.recipe.applyResolvedRefs(
+            drafts = com.arttvad9r.mealio.domain.recipe.prepareIngredientDrafts(
+                lines = listOf("500 г куриного филе", "соль по вкусу"),
+                parsed = parsed,
+            ),
+            unitLookup = { name -> "unit-1".takeIf { name == "грамм" }?.let { IngredientRef(it, name) } },
+            foodLookup = { null },
         )
 
-        val drafts = listOf(
-            resolved[0].withResolvedRefs(unitRef = IngredientRef("unit-1", "грамм"), foodRef = null),
-            resolved[1].withResolvedRefs(unitRef = null, foodRef = null),
-        )
-
-        assertTrue(drafts[0].isStructured)
-        assertEquals("unit-1", drafts[0].unitRef!!.id)
+        assertFalse(drafts[0].isStructured)
+        assertEquals("500 г куриного филе", drafts[0].note)
         assertEquals("500 г куриного филе", drafts[0].originalText)
+        assertNull(drafts[0].unitRef)
         assertFalse(drafts[1].isStructured)
         assertEquals("соль по вкусу", drafts[1].note)
     }

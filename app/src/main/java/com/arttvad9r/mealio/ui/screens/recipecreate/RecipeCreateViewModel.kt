@@ -6,6 +6,7 @@ import com.arttvad9r.mealio.data.repository.RecipeWriteSource
 import com.arttvad9r.mealio.domain.model.IngredientRef
 import com.arttvad9r.mealio.domain.model.RecipeDraft
 import com.arttvad9r.mealio.domain.model.RecipeIngredientDraft
+import com.arttvad9r.mealio.domain.recipe.applyResolvedRefs
 import com.arttvad9r.mealio.domain.recipe.prepareIngredientDrafts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -246,16 +247,11 @@ class RecipeCreateViewModel(private val repository: RecipeWriteSource) : ViewMod
      */
     private suspend fun resolveIngredientRefs(
         drafts: List<RecipeIngredientDraft>,
-    ): List<RecipeIngredientDraft> = drafts.map { draft ->
-        if (!draft.needsRefResolution) {
-            draft
-        } else {
-            draft.withResolvedRefs(
-                unitRef = draft.unitName?.let { resolveRef(repository::findUnitRef, it) },
-                foodRef = draft.foodName?.let { resolveRef(repository::findFoodRef, it) },
-            )
-        }
-    }
+    ): List<RecipeIngredientDraft> = applyResolvedRefs(
+        drafts = drafts,
+        unitLookup = { name -> resolveRef(repository::findUnitRef, name) },
+        foodLookup = { name -> resolveRef(repository::findFoodRef, name) },
+    )
 
     /**
      * Runs one reference lookup, turning any failure into "not found". A lookup that

@@ -630,4 +630,63 @@ class RecipeCreateViewModelTest {
         advanceUntilIdle()
         assertEquals(2, src.createCalls) // a fresh session starts a fresh create
     }
+
+    @Test
+    fun `smoke 3 the four smoke lines never produce a partial ingredient`() = runTest {
+        // Real Mealie v3.28.0 parser output for these lines, against a dictionary that
+        // holds "грамм", "литр" and "яйцо" but neither "куриного филе" nor a spoon unit.
+        val src = FakeWriteSource(
+            parser = { lines ->
+                listOf(
+                    parsed(lines[0], quantity = 500.0, unitName = "грамм", foodName = "куриного филе"),
+                    parsed(lines[1], quantity = 2.0, foodName = "яйцо"),
+                    parsed(lines[2], quantity = 1.0, unitName = "литр", foodName = "ст. оливкового масла"),
+                    parsed(lines[3], quantity = 0.0, foodName = "соль по вкусу"),
+                )
+            },
+            unitRefs = mapOf(
+                "грамм" to IngredientRef("unit-gram", "грамм"),
+                "литр" to IngredientRef("unit-litre", "литр"),
+            ),
+            foodRefs = mapOf("яйцо" to IngredientRef("food-egg", "яйцо")),
+        )
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.addIngredient()
+        vm.addIngredient()
+        vm.addIngredient()
+        val ids = vm.state.value.ingredients.map { it.id }
+        val lines = listOf("500 г куриного филе", "2 яйца", "1 ст. л. оливкового масла", "соль по вкусу")
+        ids.forEachIndexed { index, id -> vm.onIngredientChange(id, lines[index]) }
+        vm.save()
+        advanceUntilIdle()
+
+        val ingredients = src.drafts.single().ingredients
+        assertEquals(lines, ingredients.map { it.originalText })
+
+        // 1: the unit exists and resolves, the food does not — the whole line stays whole.
+        assertFalse("a resolved unit must not rescue a lost food", ingredients[0].isStructured)
+        assertEquals("500 г куриного филе", ingredients[0].note)
+        assertNull(ingredients[0].quantity)
+        assertNull(ingredients[0].unitRef)
+        assertEquals("only the unit it read was looked up", listOf("грамм"), src.unitLookups)
+        assertTrue(src.foodLookups.contains("куриного филе"))
+
+        // 2: quantity + an existing food, no unit to contradict anything.
+        assertTrue(ingredients[1].isStructured)
+        assertEquals(2.0, ingredients[1].quantity!!, 0.0)
+        assertEquals("food-egg", ingredients[1].foodRef!!.id)
+
+        // 3: the parser read "ст. л." as "литр"; no spoon measure is written, and the
+        // conflicting unit is not even looked up.
+        assertFalse(ingredients[2].isStructured)
+        assertEquals("1 ст. л. оливкового масла", ingredients[2].note)
+        assertNull(ingredients[2].quantity)
+        assertFalse("a contradictory unit must not be resolved", src.unitLookups.contains("литр"))
+
+        // 4: free text that the parser echoed back.
+        assertFalse(ingredients[3].isStructured)
+        assertEquals("соль по вкусу", ingredients[3].note)
+    }
 }
+
