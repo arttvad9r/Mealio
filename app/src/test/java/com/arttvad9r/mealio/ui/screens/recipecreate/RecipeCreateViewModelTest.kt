@@ -3,6 +3,7 @@ package com.arttvad9r.mealio.ui.screens.recipecreate
 import com.arttvad9r.mealio.data.remote.ErrorKind
 import com.arttvad9r.mealio.data.remote.MealioException
 import com.arttvad9r.mealio.data.repository.RecipeWriteSource
+import com.arttvad9r.mealio.domain.model.IngredientRef
 import com.arttvad9r.mealio.domain.model.Nutrition
 import com.arttvad9r.mealio.domain.model.ParsedIngredient
 import com.arttvad9r.mealio.domain.model.RecipeDetail
@@ -85,6 +86,9 @@ class RecipeCreateViewModelTest {
         private var failPatchOnce: Boolean = false,
         private val createGate: CompletableDeferred<Unit>? = null,
         private val parser: (suspend (List<String>) -> List<ParsedIngredient>)? = null,
+        private val unitRefs: Map<String, IngredientRef> = emptyMap(),
+        private val foodRefs: Map<String, IngredientRef> = emptyMap(),
+        private val lookupFails: Boolean = false,
     ) : RecipeWriteSource {
         var createCalls = 0
         var updateCalls = 0
@@ -94,6 +98,22 @@ class RecipeCreateViewModelTest {
         val updateSlugs = mutableListOf<String>()
         val drafts = mutableListOf<RecipeDraft>()
         val parsedLines = mutableListOf<List<String>>()
+        val unitLookups = mutableListOf<String>()
+        val foodLookups = mutableListOf<String>()
+
+        override suspend fun findUnitRef(name: String): IngredientRef? {
+            calls += "unit:${'$'}name"
+            unitLookups += name
+            if (lookupFails) throw MealioException(ErrorKind.UNREACHABLE, "lookup down")
+            return unitRefs[name]
+        }
+
+        override suspend fun findFoodRef(name: String): IngredientRef? {
+            calls += "food:${'$'}name"
+            foodLookups += name
+            if (lookupFails) throw MealioException(ErrorKind.UNREACHABLE, "lookup down")
+            return foodRefs[name]
+        }
 
         override suspend fun parseIngredients(lines: List<String>): List<ParsedIngredient> {
             parseCalls++
@@ -287,13 +307,84 @@ class RecipeCreateViewModelTest {
     }
 
     @Test
-    fun `structured parse result reaches the patch draft`() = runTest {
-        val src = FakeWriteSource(parser = { lines ->
-            lines.mapIndexed { index, line ->
-                if (index == 0) parsed(line, quantity = 500.0, unitName = "грамм", foodName = "куриное филе")
-                else parsed(line)
-            }
-        })
+    fun `resolved parser names become the reference ids of the patch draft`() = runTest {
+        val src = FakeWriteSource(
+            parser = { lines ->
+                listOf(parsed(lines[0], quantity = 500.0, unitName = "грамм", foodName = "куриное филе"))
+            },
+            unitRefs = mapOf("грамм" to IngredientRef("unit-1", "грамм")),
+            foodRefs = mapOf("куриное филе" to IngredientRef("food-1", "куриное филе")),
+        )
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.onIngredientChange(vm.state.value.ingredients[0].id, "500 г куриного филе")
+        vm.save()
+        advanceUntilIdle()
+
+        val ingredient = src.drafts.single().ingredients.single()
+        assertEquals("unit-1", ingredient.unitRef!!.id)
+        assertEquals("грамм", ingredient.unitRef!!.name)
+        assertEquals("food-1", ingredient.foodRef!!.id)
+        assertNull("the parser name must not survive the lookup", ingredient.unitName)
+        assertNull("the parser name must not survive the lookup", ingredient.foodName)
+        assertTrue(ingredient.isStructured)
+        assertEquals(listOf("грамм"), src.unitLookups)
+        assertEquals(listOf("куриное филе"), src.foodLookups)
+    }
+
+    @Test
+    fun `an unresolvable parser name keeps the whole line note-only`() = runTest {
+        val src = FakeWriteSource(
+            parser = { lines ->
+                listOf(parsed(lines[0], quantity = 500.0, unitName = "г л", foodName = "куриного филе"))
+            },
+        )
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.onIngredientChange(vm.state.value.ingredients[0].id, "500 г куриного филе")
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(RecipeCreatePhase.SUCCESS, vm.state.value.phase)
+        val ingredient = src.drafts.single().ingredients.single()
+        assertFalse(ingredient.isStructured)
+        assertEquals("500 г куриного филе", ingredient.note)
+        assertNull(ingredient.quantity)
+        assertNull(ingredient.unitName)
+        assertNull(ingredient.foodName)
+    }
+
+    @Test
+    fun `a failing reference lookup still saves note-only`() = runTest {
+        val src = FakeWriteSource(
+            parser = { lines ->
+                listOf(parsed(lines[0], quantity = 500.0, unitName = "грамм", foodName = "куриное филе"))
+            },
+            lookupFails = true,
+        )
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.onIngredientChange(vm.state.value.ingredients[0].id, "500 г куриного филе")
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(RecipeCreatePhase.SUCCESS, vm.state.value.phase)
+        assertNull(vm.state.value.error)
+        assertEquals("500 г куриного филе", src.drafts.single().ingredients.single().note)
+    }
+
+    @Test
+    fun `a resolved parse result reaches the patch draft as an id reference`() = runTest {
+        val src = FakeWriteSource(
+            parser = { lines ->
+                lines.mapIndexed { index, line ->
+                    if (index == 0) parsed(line, quantity = 500.0, unitName = "грамм", foodName = "куриное филе")
+                    else parsed(line)
+                }
+            },
+            unitRefs = mapOf("грамм" to IngredientRef("unit-1", "грамм")),
+            foodRefs = mapOf("куриное филе" to IngredientRef("food-1", "куриное филе")),
+        )
         val vm = vm(src)
         vm.onNameChange("Ужин")
         vm.fillSmokeIngredients()
@@ -307,8 +398,8 @@ class RecipeCreateViewModelTest {
             ingredients.map { it.originalText },
         )
         assertEquals(500.0, ingredients[0].quantity!!, 0.0)
-        assertEquals("грамм", ingredients[0].unitName)
-        assertEquals("куриное филе", ingredients[0].foodName)
+        assertEquals("unit-1", ingredients[0].unitRef!!.id)
+        assertEquals("food-1", ingredients[0].foodRef!!.id)
         assertTrue(ingredients[0].isStructured)
         // the other two lines had no usable structure: safe note-only fallback
         assertEquals("2 яйца", ingredients[1].note)
@@ -352,14 +443,21 @@ class RecipeCreateViewModelTest {
 
     @Test
     fun `mixed parser result keeps structured lines and falls back the rest`() = runTest {
-        val src = FakeWriteSource(parser = { lines ->
-            listOf(
-                parsed(lines[0], quantity = 500.0, unitName = "грамм", foodName = "куриное филе"),
-                parsed(lines[1], quantity = 2.0, foodName = "яйцо"),
-                // "соль по вкусу": the parser echoes the whole line as the food name
-                parsed(lines[2], quantity = 0.0, foodName = "соль по вкусу"),
-            )
-        })
+        val src = FakeWriteSource(
+            parser = { lines ->
+                listOf(
+                    parsed(lines[0], quantity = 500.0, unitName = "грамм", foodName = "куриное филе"),
+                    parsed(lines[1], quantity = 2.0, foodName = "яйцо"),
+                    // "соль по вкусу": the parser echoes the whole line as the food name
+                    parsed(lines[2], quantity = 0.0, foodName = "соль по вкусу"),
+                )
+            },
+            unitRefs = mapOf("грамм" to IngredientRef("unit-1", "грамм")),
+            foodRefs = mapOf(
+                "куриное филе" to IngredientRef("food-1", "куриное филе"),
+                "яйцо" to IngredientRef("food-2", "яйцо"),
+            ),
+        )
         val vm = vm(src)
         vm.onNameChange("Ужин")
         vm.fillSmokeIngredients()
@@ -442,10 +540,12 @@ class RecipeCreateViewModelTest {
             parser = { lines ->
                 listOf(parsed(lines[0], quantity = 500.0, unitName = "грамм", foodName = "куриное филе"))
             },
+            unitRefs = mapOf("грамм" to IngredientRef("unit-1", "грамм")),
+            foodRefs = mapOf("куриное филе" to IngredientRef("food-1", "куриное филе")),
         )
         val vm = vm(src)
         vm.onNameChange("Ужин")
-        vm.onIngredientChange(vm.state.value.ingredients[0].id, "500 г куриного филе")
+        vm.onIngredientChange(vm.state.value.ingredients[0].id, "2 яйца")
 
         vm.save()
         advanceUntilIdle()

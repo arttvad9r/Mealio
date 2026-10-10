@@ -42,17 +42,24 @@ data class RecipeUpdateRequest(
 )
 
 /**
- * One ingredient line. A line the server-side parser could not structure is written
- * note-only — `{"note": "500 г куриного филе"}` — with [quantity], [unit] and [food]
- * null so they are omitted. A structured line sets [quantity]/[unit]/[food] and
- * carries the user's line in [originalText], exactly like Mealie's own parser output.
- * Mealie builds `display` server-side, so it is never sent from Android.
+ * One ingredient line. A line whose parser suggestions could not be resolved to
+ * existing Mealie entities is written note-only — `{"note": "500 г куриного филе"}` —
+ * with [quantity], [unit] and [food] null so they are omitted. A structured line sets
+ * [quantity]/[unit]/[food] and carries the user's line in [originalText], exactly like
+ * Mealie's own parser output. Mealie builds `display` server-side, so it is never sent
+ * from Android.
+ *
+ * [unit]/[food] are references to entities that already exist on the server and carry
+ * their `id` — never a name: Mealie's PATCH builds the ingredient through
+ * `RecipeIngredientModel`, whose `auto_init` resolves a MANYTOONE relation by primary
+ * key only and raises `ValueError: Expected 'id' to be provided for unit` for a
+ * name-only reference (HTTP 500).
  */
 @Serializable
 data class RecipeIngredientWriteDto(
     val quantity: Double? = null,
-    val unit: UnitRefDto? = null,
-    val food: FoodRefDto? = null,
+    val unit: IngredientUnitRefWriteDto? = null,
+    val food: IngredientFoodRefWriteDto? = null,
     val note: String? = null,
     @SerialName("originalText") val originalText: String? = null,
 )
@@ -61,11 +68,32 @@ data class RecipeIngredientWriteDto(
 @Serializable
 data class RecipeStepWriteDto(val text: String)
 
-/** Reference to a food by name (Mealie accepts `CreateIngredientFood(name=...)`). */
+/**
+ * Food reference in a PATCH body: an already existing food, looked up by exact name
+ * through `GET /api/foods`.
+ *
+ * Both keys are needed, verified against Mealie v3.28.0: [id] because the DB layer
+ * resolves the relation by primary key (`auto_init.py`, MANYTOONE) — a name-only
+ * reference raises `ValueError: Expected 'id' to be provided for food` (HTTP 500) —
+ * and [name] because the request schema (`IngredientFood-Input`) declares it required,
+ * so an id-only object never gets past validation (HTTP 422). [name] is always the
+ * server's own name for that id.
+ */
+@Serializable
+data class IngredientFoodRefWriteDto(val id: String, val name: String)
+
+/**
+ * Unit reference in a PATCH body: an already existing unit, looked up by exact name
+ * through `GET /api/units`. See [IngredientFoodRefWriteDto] for why both keys are sent.
+ */
+@Serializable
+data class IngredientUnitRefWriteDto(val id: String, val name: String)
+
+/** Reference to a food as Mealie's *parser* reports it — read-only, never written. */
 @Serializable
 data class FoodRefDto(val name: String)
 
-/** Reference to a unit by name (Mealie accepts `CreateIngredientUnit(name=...)`). */
+/** Reference to a unit as Mealie's *parser* reports it — read-only, never written. */
 @Serializable
 data class UnitRefDto(val name: String)
 

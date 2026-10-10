@@ -19,25 +19,66 @@ data class RecipeDraft(
 )
 
 /**
+ * One existing Mealie unit/food, as the server itself names it, referenced from a write.
+ *
+ * [name] is not decoration: Mealie's request schema for `recipeIngredient[].unit`/`food`
+ * (`IngredientUnit-Input` / `IngredientFood-Input`) declares `name` required, so an
+ * id-only object is rejected with HTTP 422 before it ever reaches the DB layer. [name]
+ * therefore always comes from the server entity the lookup found — never from the
+ * parser's suggestion.
+ */
+data class IngredientRef(val id: String, val name: String)
+
+/**
  * One ingredient ready to be written. [originalText] is always the trimmed line the
  * user typed — it is what a fallback keeps and what the structured form reports as
  * Mealie's `originalText`.
  *
- * [quantity], [unitName] and [foodName] are set only when Mealie's parser produced a
- * usable result; when all three are null the ingredient is written as note-only, as
- * the manual baseline did. Mealie builds the `display` string server-side, so it is
- * never sent from Android.
+ * [unitName]/[foodName] are the *parser's* suggestions. They are lookup keys only and
+ * are never written: Mealie's PATCH resolves those relations by `id`
+ * (db/models/_model_utils/auto_init.py, the MANYTOONE branch does `val.get("id")` and
+ * raises `ValueError: Expected 'id' to be provided for unit` for a name-only reference —
+ * the HTTP 500 of the first smoke test). [withResolvedRefs] turns them into the existing
+ * Mealie [unitRef]/[foodRef]; when neither name resolves, the whole line degrades to the
+ * note-only fallback.
+ *
+ * [quantity], [note] and [originalText] are written whenever the line is structured
+ * ([isStructured]); a line without a resolved reference is written note-only, as the
+ * manual baseline did. Mealie builds the `display` string server-side, so it is never
+ * sent from Android.
  */
 data class RecipeIngredientDraft(
     val originalText: String,
+    val note: String? = null,
     val quantity: Double? = null,
     val unitName: String? = null,
     val foodName: String? = null,
-    val note: String? = null,
+    val unitRef: IngredientRef? = null,
+    val foodRef: IngredientRef? = null,
 ) {
-    /** True when the parser produced structure worth writing (not a note-only line). */
+    /**
+     * True when the line can be written as a structured ingredient, i.e. at least one
+     * of its parser suggestions was resolved to an existing Mealie entity.
+     */
     val isStructured: Boolean
-        get() = quantity != null || unitName != null || foodName != null
+        get() = unitRef != null || foodRef != null
+
+    /** True while the parser names still have to be resolved against the server. */
+    val needsRefResolution: Boolean
+        get() = unitName != null || foodName != null
+
+    /**
+     * Applies the references the server lookup found. A line whose parser suggestions
+     * could not be resolved to existing Mealie entities is kept as the user's original
+     * line (note-only): writing a made-up unit/food, or a quantity without one, is what
+     * broke the first physical smoke test.
+     */
+    fun withResolvedRefs(unitRef: IngredientRef?, foodRef: IngredientRef?): RecipeIngredientDraft =
+        if (unitRef == null && foodRef == null) {
+            fallback(originalText)
+        } else {
+            copy(unitRef = unitRef, foodRef = foodRef, unitName = null, foodName = null)
+        }
 
     companion object {
         /** The safe fallback for a line the parser did not (or could not) structure. */

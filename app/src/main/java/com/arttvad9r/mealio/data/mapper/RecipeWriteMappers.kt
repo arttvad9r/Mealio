@@ -1,11 +1,11 @@
 package com.arttvad9r.mealio.data.mapper
 
-import com.arttvad9r.mealio.data.remote.dto.FoodRefDto
+import com.arttvad9r.mealio.data.remote.dto.IngredientFoodRefWriteDto
+import com.arttvad9r.mealio.data.remote.dto.IngredientUnitRefWriteDto
 import com.arttvad9r.mealio.data.remote.dto.ParsedIngredientDto
 import com.arttvad9r.mealio.data.remote.dto.RecipeIngredientWriteDto
 import com.arttvad9r.mealio.data.remote.dto.RecipeStepWriteDto
 import com.arttvad9r.mealio.data.remote.dto.RecipeUpdateRequest
-import com.arttvad9r.mealio.data.remote.dto.UnitRefDto
 import com.arttvad9r.mealio.domain.model.ParsedIngredient
 import com.arttvad9r.mealio.domain.model.RecipeDraft
 import com.arttvad9r.mealio.domain.model.RecipeIngredientDraft
@@ -28,31 +28,31 @@ fun RecipeDraft.toUpdateRequest(): RecipeUpdateRequest = RecipeUpdateRequest(
 /**
  * One ingredient draft as Mealie's `RecipeIngredient` write body.
  *
- * A structured draft sends `quantity` + `unit` + `food` and the user's line as
- * `originalText` (the parser's own output shape); `display` is left out because
- * Mealie builds it from those parts. A draft without usable structure is written
- * note-only — the manual baseline — so the text is never lost. A structured draft
- * that ends up with no quantity/unit/food after normalisation degrades to the same
- * note-only form rather than writing an empty ingredient.
+ * A structured draft sends `quantity` + `unit` + `food` — references to an existing
+ * Mealie entity, each as `{"id": ..., "name": ...}` (the id for the DB layer, the name
+ * because the request schema requires it) — and the user's line as `originalText` (the
+ * parser's own output shape); `display` is left out because Mealie builds it from
+ * those parts. A draft without a resolved reference is written note-only — the manual
+ * baseline — so the text is never lost, and the parser's own names are never written.
  */
 fun RecipeIngredientDraft.toWriteDto(): RecipeIngredientWriteDto {
-    val quantity = quantity?.takeIf { it > 0.0 }
-    val unit = unitName?.trim()?.takeIf(String::isNotEmpty)?.let(::UnitRefDto)
-    val food = foodName?.trim()?.takeIf(String::isNotEmpty)?.let(::FoodRefDto)
     val line = originalText.trim()
-    if (quantity == null && unit == null && food == null) {
+    if (!isStructured) {
         return RecipeIngredientWriteDto(note = note?.trim()?.takeIf(String::isNotEmpty) ?: line)
     }
     return RecipeIngredientWriteDto(
-        quantity = quantity,
-        unit = unit,
-        food = food,
+        quantity = quantity?.takeIf { it > 0.0 },
+        unit = unitRef?.let { IngredientUnitRefWriteDto(it.id, it.name) },
+        food = foodRef?.let { IngredientFoodRefWriteDto(it.id, it.name) },
         note = note?.trim()?.takeIf(String::isNotEmpty),
         originalText = line.takeIf(String::isNotEmpty),
     )
 }
 
 /** Maps a server-parsed ingredient to the domain model. */
+/** Maps a server-parsed ingredient to the domain model. Its `id`s are never used: the
+ * write path looks the references up itself (the parser answers names, and ids only
+ * for entities it happened to recognize). */
 fun ParsedIngredientDto.toDomain(): ParsedIngredient = ParsedIngredient(
     input = input,
     quantity = ingredient?.quantity,

@@ -4,6 +4,8 @@ import com.arttvad9r.mealio.data.remote.dto.AddRecipeToShoppingDto
 import com.arttvad9r.mealio.data.remote.dto.AppAboutDto
 import com.arttvad9r.mealio.data.remote.dto.CreateRecipeRequest
 import com.arttvad9r.mealio.data.remote.dto.ImportRecipeUrlRequest
+import com.arttvad9r.mealio.data.remote.dto.IngredientFoodDto
+import com.arttvad9r.mealio.data.remote.dto.IngredientUnitDto
 import com.arttvad9r.mealio.data.remote.dto.PageDto
 import com.arttvad9r.mealio.data.remote.dto.ParseIngredientsRequest
 import com.arttvad9r.mealio.data.remote.dto.ParsedIngredientDto
@@ -92,6 +94,25 @@ interface MealieApi {
     /** Parses free-text ingredient lines server-side (Mealie's default parser: nlp). */
     @POST("api/parser/ingredients")
     suspend fun parseIngredients(@Body body: ParseIngredientsRequest): List<ParsedIngredientDto>
+
+    // --- Reference lookup for the ingredient parser (read-only). ---
+
+    /**
+     * Searches the household's ingredient units. Mealie's search is loose (it also
+     * answers near matches), so the caller keeps only an exact name match.
+     */
+    @GET("api/units")
+    suspend fun units(
+        @Query("search") search: String,
+        @Query("perPage") perPage: Int = -1,
+    ): PageDto<IngredientUnitDto>
+
+    /** Searches the household's foods; see [units]. */
+    @GET("api/foods")
+    suspend fun foods(
+        @Query("search") search: String,
+        @Query("perPage") perPage: Int = -1,
+    ): PageDto<IngredientFoodDto>
 
     @GET("api/organizers/categories")
     suspend fun categories(

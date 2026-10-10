@@ -9,10 +9,12 @@ import com.arttvad9r.mealio.data.remote.dto.CreateRecipeRequest
 import com.arttvad9r.mealio.data.remote.dto.ImportRecipeUrlRequest
 import com.arttvad9r.mealio.data.remote.dto.ParseIngredientsRequest
 import com.arttvad9r.mealio.data.remote.toMealioException
+import com.arttvad9r.mealio.domain.model.IngredientRef
 import com.arttvad9r.mealio.domain.model.ParsedIngredient
 import com.arttvad9r.mealio.domain.model.RecipeDetail
 import com.arttvad9r.mealio.domain.model.RecipeDraft
 import com.arttvad9r.mealio.domain.model.RecipeSummary
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -43,6 +45,20 @@ interface RecipeWriteSource {
      * "no structure available" and keeps the user's lines as note-only ingredients.
      */
     suspend fun parseIngredients(lines: List<String>): List<ParsedIngredient>
+
+    /**
+     * The existing Mealie unit whose name equals [name] exactly, or null.
+     *
+     * The parser reports unit/food as plain names, but Mealie's PATCH resolves those
+     * relations by `id` while its request schema still requires `name`, so the name has
+     * to be exchanged for an entity that already exists. Best effort by contract: a
+     * lookup failure or a miss answers null, which makes the caller write that
+     * ingredient note-only instead of failing the save.
+     */
+    suspend fun findUnitRef(name: String): IngredientRef?
+
+    /** The existing Mealie food whose name equals [name] exactly, or null. */
+    suspend fun findFoodRef(name: String): IngredientRef?
 }
 
 class RecipeRepository(private val connection: ConnectionRepository) :
@@ -189,8 +205,62 @@ class RecipeRepository(private val connection: ConnectionRepository) :
             }
         }
 
+    override suspend fun findUnitRef(name: String): IngredientRef? = withContext(Dispatchers.IO) {
+        val api = api() ?: return@withContext null
+        lookupRef(name) { api.units(it).items.map { unit -> NamedRef(unit.id, unit.name) } }
+    }
+
+    override suspend fun findFoodRef(name: String): IngredientRef? = withContext(Dispatchers.IO) {
+        val api = api() ?: return@withContext null
+        lookupRef(name) { api.foods(it).items.map { food -> NamedRef(food.id, food.name) } }
+    }
+
+    /**
+     * Runs a unit/food search and keeps an exact name match. Mealie's search is loose
+     * ("куриного филе" also answers "свиное филе", "соль по вкусу" answers 30 unrelated
+     * foods), so the answer is filtered here rather than trusted. Any failure is
+     * swallowed: the caller falls back to the note-only form, which is always safe.
+     */
+    private suspend fun lookupRef(
+        name: String,
+        search: suspend (String) -> List<NamedRef>,
+    ): IngredientRef? = try {
+        exactRef(name, search(name))
+    } catch (e: CancellationException) {
+        throw e
+    } catch (t: Throwable) {
+        null
+    }
+
     private fun apiOrThrow(): MealieApi =
         api() ?: throw MealioException(ErrorKind.UNKNOWN, "not connected")
+}
+
+/** A unit/food on the server, reduced to what resolving a parser name needs. */
+internal data class NamedRef(val id: String?, val name: String?)
+
+/**
+ * Normalized key for comparing a parser name with a Mealie entity name: trimmed,
+ * case-folded and with runs of whitespace collapsed, plus `ё` folded to `е` (Mealie
+ * normalizes names the same way before storing them).
+ */
+internal fun refNameKey(value: String?): String = value.orEmpty()
+    .trim()
+    .lowercase()
+    .replace('ё', 'е')
+    .replace(Regex("\\s+"), " ")
+
+/**
+ * The existing entity whose name matches [name] exactly, or null when nothing does. The
+ * returned reference carries the *server's* name, which is what a write has to send
+ * along with the id. Top-level [internal] so the matching rule can be asserted in tests.
+ */
+internal fun exactRef(name: String, refs: List<NamedRef>): IngredientRef? {
+    val key = refNameKey(name)
+    if (key.isEmpty()) return null
+    return refs
+        .firstOrNull { refNameKey(it.name) == key && !it.id.isNullOrBlank() }
+        ?.let { IngredientRef(id = it.id!!, name = it.name.orEmpty()) }
 }
 
 /**

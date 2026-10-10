@@ -178,6 +178,58 @@ class RecipeWriteContractTest {
     }
 
     @Test
+    fun `unit search asks for all matches and decodes ids and names`() {
+        val server = MockWebServer()
+        server.enqueue(
+            jsonResponse(
+                """{"page":1,"perPage":-1,"total":2,"items":[""" +
+                    """{"id":"u1","name":"грамм","pluralName":"граммы"},{"id":"u2","name":"литр"}]}""",
+            ),
+        )
+        server.start()
+        try {
+            val page = runBlocking { apiFor(server).units("грамм") }
+            assertEquals(2, page.total)
+            assertEquals("u1", page.items[0].id)
+            assertEquals("грамм", page.items[0].name)
+            assertEquals("граммы", page.items[0].pluralName)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertEquals("/api/units?search=%D0%B3%D1%80%D0%B0%D0%BC%D0%BC&perPage=-1", request.path)
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
+    fun `food search decodes the loose answer the exact match filters`() {
+        val server = MockWebServer()
+        server.enqueue(
+            jsonResponse(
+                """{"page":1,"perPage":-1,"total":1,"items":[""" +
+                    """{"id":"f1","name":"свиное филе"}]}""",
+            ),
+        )
+        server.start()
+        try {
+            val page = runBlocking { apiFor(server).foods("куриного филе") }
+            assertEquals("f1", page.items.single().id)
+
+            val request = server.takeRequest()
+            assertEquals("GET", request.method)
+            assertTrue(
+                "the query must be the parser name: ${request.path}",
+                request.path.orEmpty().startsWith(
+                    "/api/foods?search=%D0%BA%D1%83%D1%80%D0%B8%D0%BD%D0%BE%D0%B3%D0%BE",
+                ),
+            )
+        } finally {
+            server.shutdown()
+        }
+    }
+
+    @Test
     fun `delete image ignores Mealie's success body`() {
         val server = MockWebServer()
         server.enqueue(jsonResponse("""{"message":"Image deleted","error":false}"""))

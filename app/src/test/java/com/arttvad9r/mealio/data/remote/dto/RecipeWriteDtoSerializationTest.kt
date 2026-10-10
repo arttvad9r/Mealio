@@ -2,6 +2,7 @@ package com.arttvad9r.mealio.data.remote.dto
 
 import com.arttvad9r.mealio.data.mapper.toUpdateRequest
 import com.arttvad9r.mealio.data.remote.MealieApiFactory
+import com.arttvad9r.mealio.domain.model.IngredientRef
 import com.arttvad9r.mealio.domain.model.RecipeDraft
 import com.arttvad9r.mealio.domain.model.RecipeIngredientDraft
 import kotlinx.serialization.encodeToString
@@ -148,7 +149,42 @@ class RecipeWriteDtoSerializationTest {
     }
 
     @Test
-    fun `structured ingredient draft serializes quantity unit food and originalText`() {
+    fun `structured ingredient draft serializes quantity and the resolved reference ids`() {
+        val el = obj(
+            RecipeDraft(
+                name = "Тест NLP",
+                ingredients = listOf(
+                    RecipeIngredientDraft(
+                        originalText = "500 г куриного филе",
+                        quantity = 500.0,
+                        unitRef = IngredientRef("unit-1", "грамм"),
+                        foodRef = IngredientRef("food-1", "куриное филе"),
+                    ),
+                ),
+            ).toUpdateRequest(),
+        )
+
+        val ingredient = el["recipeIngredient"]!!.jsonArray.single().jsonObject
+        assertEquals(setOf("quantity", "unit", "food", "originalText"), ingredient.keys)
+        assertEquals(500.0, ingredient["quantity"]!!.jsonPrimitive.double, 0.0)
+        // The DB layer resolves these relations by id (name-only answers 500) while the
+        // request schema requires name (id-only answers 422), so both keys are sent.
+        assertEquals(setOf("id", "name"), ingredient["unit"]!!.jsonObject.keys)
+        assertEquals("unit-1", ingredient["unit"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals("грамм", ingredient["unit"]!!.jsonObject["name"]!!.jsonPrimitive.content)
+        assertEquals(setOf("id", "name"), ingredient["food"]!!.jsonObject.keys)
+        assertEquals("food-1", ingredient["food"]!!.jsonObject["id"]!!.jsonPrimitive.content)
+        assertEquals("куриное филе", ingredient["food"]!!.jsonObject["name"]!!.jsonPrimitive.content)
+        assertEquals("500 г куриного филе", ingredient["originalText"]!!.jsonPrimitive.content)
+        // Mealie builds `display` from the parts above, so it is never sent
+        assertFalse("display must be built by Mealie", "display" in ingredient)
+        forbidden.forEach { assertFalse("PATCH must not send $it", it in el) }
+    }
+
+    @Test
+    fun `a name-only parser suggestion never reaches the patch body`() {
+        // The first physical smoke test failed exactly here: a draft that still carries
+        // the parser's names, but no id, must degrade to the note-only form.
         val el = obj(
             RecipeDraft(
                 name = "Тест NLP",
@@ -164,16 +200,10 @@ class RecipeWriteDtoSerializationTest {
         )
 
         val ingredient = el["recipeIngredient"]!!.jsonArray.single().jsonObject
-        assertEquals(setOf("quantity", "unit", "food", "originalText"), ingredient.keys)
-        assertEquals(500.0, ingredient["quantity"]!!.jsonPrimitive.double, 0.0)
-        assertEquals(setOf("name"), ingredient["unit"]!!.jsonObject.keys)
-        assertEquals("грамм", ingredient["unit"]!!.jsonObject["name"]!!.jsonPrimitive.content)
-        assertEquals(setOf("name"), ingredient["food"]!!.jsonObject.keys)
-        assertEquals("куриное филе", ingredient["food"]!!.jsonObject["name"]!!.jsonPrimitive.content)
-        assertEquals("500 г куриного филе", ingredient["originalText"]!!.jsonPrimitive.content)
-        // Mealie builds `display` from the parts above, so it is never sent
-        assertFalse("display must be built by Mealie", "display" in ingredient)
-        forbidden.forEach { assertFalse("PATCH must not send $it", it in el) }
+        assertEquals(setOf("note"), ingredient.keys)
+        assertEquals("500 г куриного филе", ingredient["note"]!!.jsonPrimitive.content)
+        assertFalse("unit/food must not be sent without an id", "unit" in ingredient)
+        assertFalse("unit/food must not be sent without an id", "food" in ingredient)
     }
 
     @Test
@@ -185,7 +215,7 @@ class RecipeWriteDtoSerializationTest {
                     RecipeIngredientDraft(
                         originalText = "2 яйца",
                         quantity = 2.0,
-                        foodName = "яйцо",
+                        foodRef = IngredientRef("food-1", "яйцо"),
                     ),
                     RecipeIngredientDraft.fallback("соль по вкусу"),
                 ),
@@ -200,17 +230,17 @@ class RecipeWriteDtoSerializationTest {
     }
 
     @Test
-    fun `a draft with no structure after normalisation degrades to note-only`() {
+    fun `a line whose relations did not resolve degrades to note-only`() {
         val el = obj(
             RecipeDraft(
                 name = "X",
                 ingredients = listOf(
                     RecipeIngredientDraft(
                         originalText = "500 г куриного филе",
-                        quantity = 0.0,
-                        unitName = "  ",
-                        foodName = "",
-                    ),
+                        quantity = 500.0,
+                        unitName = "грамм",
+                        foodName = "куриное филе",
+                    ).withResolvedRefs(unitRef = null, foodRef = null),
                 ),
             ).toUpdateRequest(),
         )

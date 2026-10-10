@@ -3,6 +3,7 @@ package com.arttvad9r.mealio.data.mapper
 import com.arttvad9r.mealio.data.remote.MealieApiFactory
 import com.arttvad9r.mealio.data.remote.dto.ParseIngredientsRequest
 import com.arttvad9r.mealio.data.remote.dto.ParsedIngredientDto
+import com.arttvad9r.mealio.domain.model.IngredientRef
 import com.arttvad9r.mealio.domain.model.ParsedIngredient
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -92,14 +93,25 @@ class ParsedIngredientMappingTest {
 
     @Test
     fun `the decoded response is best-effort safe for the create flow`() {
-        // The whole chain: real JSON -> DTO -> domain -> drafts.
+        // The whole chain: real JSON -> DTO -> domain -> drafts (still unresolved), then
+        // the reference lookup: the unit resolves, the echoed free-text "food" does not,
+        // so the first line survives as a structured ingredient and the second one stays
+        // note-only.
         val parsed: List<ParsedIngredient> = decode().map { it.toDomain() }
-        val drafts = com.arttvad9r.mealio.domain.recipe.prepareIngredientDrafts(
+        val resolved = com.arttvad9r.mealio.domain.recipe.prepareIngredientDrafts(
             lines = listOf("500 г куриного филе", "соль по вкусу"),
             parsed = parsed,
         )
 
+        val drafts = listOf(
+            resolved[0].withResolvedRefs(unitRef = IngredientRef("unit-1", "грамм"), foodRef = null),
+            resolved[1].withResolvedRefs(unitRef = null, foodRef = null),
+        )
+
         assertTrue(drafts[0].isStructured)
+        assertEquals("unit-1", drafts[0].unitRef!!.id)
+        assertEquals("500 г куриного филе", drafts[0].originalText)
         assertFalse(drafts[1].isStructured)
+        assertEquals("соль по вкусу", drafts[1].note)
     }
 }

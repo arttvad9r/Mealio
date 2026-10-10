@@ -1,5 +1,6 @@
 package com.arttvad9r.mealio.domain.recipe
 
+import com.arttvad9r.mealio.domain.model.IngredientRef
 import com.arttvad9r.mealio.domain.model.ParsedIngredient
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -12,6 +13,10 @@ import org.junit.Test
  * structure, and every line that is not structured (or that the parser never saw)
  * falls back to a note-only draft keeping the user's text. Shapes mirror the real
  * Mealie v3.28.0 `POST /api/parser/ingredients` response.
+ *
+ * The drafts produced here are *unresolved*: they carry the parser's unit/food names,
+ * not ids. [RecipeIngredientDraft.withResolvedRefs] is what turns them into a writable
+ * structured ingredient (or into the note-only fallback when nothing resolves).
  */
 class IngredientDraftingTest {
 
@@ -25,7 +30,7 @@ class IngredientDraftingTest {
     ) = ParsedIngredient(input, quantity, unitName, foodName, note, display)
 
     @Test
-    fun `structured parser result becomes a structured draft`() {
+    fun `structured parser result is kept as names for the reference lookup`() {
         val drafts = prepareIngredientDrafts(
             lines = listOf("500 г куриного филе"),
             parsed = listOf(
@@ -34,11 +39,65 @@ class IngredientDraftingTest {
         )
 
         val draft = drafts.single()
-        assertTrue(draft.isStructured)
+        assertTrue(draft.needsRefResolution)
+        assertFalse("nothing is structured before the ids are looked up", draft.isStructured)
         assertEquals(500.0, draft.quantity!!, 0.0)
         assertEquals("грамм", draft.unitName)
         assertEquals("куриное филе", draft.foodName)
         assertNull(draft.note)
+    }
+
+    @Test
+    fun `resolved ids make the line structured and drop the parser names`() {
+        val draft = prepareIngredientDrafts(
+            lines = listOf("500 г куриного филе"),
+            parsed = listOf(
+                parsed("500 г куриного филе", quantity = 500.0, unitName = "грамм", foodName = "куриное филе"),
+            ),
+        ).single().withResolvedRefs(
+            unitRef = IngredientRef("unit-1", "грамм"),
+            foodRef = IngredientRef("food-1", "куриное филе"),
+        )
+
+        assertTrue(draft.isStructured)
+        assertEquals("unit-1", draft.unitRef!!.id)
+        assertEquals("грамм", draft.unitRef!!.name)
+        assertEquals("food-1", draft.foodRef!!.id)
+        assertNull(draft.unitName)
+        assertNull(draft.foodName)
+        assertEquals("500 г куриного филе", draft.originalText)
+    }
+
+    @Test
+    fun `one resolved reference is enough to keep the structure`() {
+        val draft = prepareIngredientDrafts(
+            lines = listOf("2 яйца"),
+            parsed = listOf(parsed("2 яйца", quantity = 2.0, unitName = "штука", foodName = "яйцо")),
+        ).single().withResolvedRefs(unitRef = null, foodRef = IngredientRef("food-1", "яйцо"))
+
+        assertTrue(draft.isStructured)
+        assertNull(draft.unitRef)
+        assertEquals("food-1", draft.foodRef!!.id)
+        assertNull("an unresolved unit must not leak its name", draft.unitName)
+    }
+
+    @Test
+    fun `an unresolvable relation keeps the whole line as a note`() {
+        val draft = prepareIngredientDrafts(
+            lines = listOf("500 г куриного филе"),
+            parsed = listOf(
+                parsed("500 г куриного филе", quantity = 500.0, unitName = "грамм", foodName = "куриное филе"),
+            ),
+        ).single().withResolvedRefs(unitRef = null, foodRef = null)
+
+        assertFalse(draft.isStructured)
+        assertEquals("500 г куриного филе", draft.note)
+        assertEquals("500 г куриного филе", draft.originalText)
+        assertNull(draft.quantity)
+        assertNull(draft.unitName)
+        assertNull(draft.foodName)
+        assertNull(draft.unitRef)
+        assertNull(draft.foodRef)
     }
 
     @Test
@@ -127,7 +186,7 @@ class IngredientDraftingTest {
             listOf("500 г куриного филе", "2 яйца", "соль по вкусу"),
             drafts.map { it.note },
         )
-        assertEquals(0, drafts.count { it.isStructured })
+        assertEquals(0, drafts.count { it.needsRefResolution })
     }
 
     @Test
@@ -143,8 +202,9 @@ class IngredientDraftingTest {
         )
 
         assertEquals(3, drafts.size)
-        assertTrue(drafts[0].isStructured)
-        assertTrue(drafts[1].isStructured)
+        assertTrue(drafts[0].needsRefResolution)
+        assertTrue(drafts[1].needsRefResolution)
+        assertFalse(drafts[2].needsRefResolution)
         assertFalse(drafts[2].isStructured)
         assertEquals("соль по вкусу", drafts[2].note)
     }
@@ -158,9 +218,9 @@ class IngredientDraftingTest {
         )
 
         assertEquals(lines, drafts.map { it.originalText })
-        assertFalse(drafts[0].isStructured)
-        assertTrue(drafts[1].isStructured)
-        assertFalse(drafts[2].isStructured)
+        assertFalse(drafts[0].needsRefResolution)
+        assertTrue(drafts[1].needsRefResolution)
+        assertFalse(drafts[2].needsRefResolution)
     }
 
     @Test
@@ -171,7 +231,7 @@ class IngredientDraftingTest {
         )
 
         assertEquals(2, drafts.size)
-        assertEquals(0, drafts.count { it.isStructured })
+        assertEquals(0, drafts.count { it.needsRefResolution })
         assertEquals(listOf("500 г куриного филе", "2 яйца"), drafts.map { it.note })
     }
 

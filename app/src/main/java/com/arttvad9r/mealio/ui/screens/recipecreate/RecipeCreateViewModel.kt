@@ -3,7 +3,9 @@ package com.arttvad9r.mealio.ui.screens.recipecreate
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arttvad9r.mealio.data.repository.RecipeWriteSource
+import com.arttvad9r.mealio.domain.model.IngredientRef
 import com.arttvad9r.mealio.domain.model.RecipeDraft
+import com.arttvad9r.mealio.domain.model.RecipeIngredientDraft
 import com.arttvad9r.mealio.domain.recipe.prepareIngredientDrafts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -197,7 +199,8 @@ class RecipeCreateViewModel(private val repository: RecipeWriteSource) : ViewMod
 
     /**
      * Builds the write-ready draft: parses the ingredient lines server-side (best
-     * effort — any failure means "no structure", never an error the user sees) and
+     * effort — any failure means "no structure", never an error the user sees), resolves
+     * each parser suggestion against the entities that already exist on the server and
      * converts each line into a structured ingredient or a note-only fallback. The
      * result is remembered for the rest of the save session.
      *
@@ -227,11 +230,47 @@ class RecipeCreateViewModel(private val repository: RecipeWriteSource) : ViewMod
             name = name,
             description = description.trim().ifEmpty { null },
             servings = servings,
-            ingredients = prepareIngredientDrafts(lines, parsed),
+            ingredients = resolveIngredientRefs(prepareIngredientDrafts(lines, parsed)),
             instructions = instructions,
         )
         preparedDraft = draft
         return draft
+    }
+
+    /**
+     * Exchanges the parser's unit/food names for ids of entities that already exist on
+     * the server, because Mealie's PATCH accepts those relations by id only (a name-only
+     * reference is answered with HTTP 500 — the first physical smoke test). Also best
+     * effort: a line whose suggestions cannot be resolved to existing entities is kept
+     * whole as the user's original line, so a save never fails on a missing reference.
+     */
+    private suspend fun resolveIngredientRefs(
+        drafts: List<RecipeIngredientDraft>,
+    ): List<RecipeIngredientDraft> = drafts.map { draft ->
+        if (!draft.needsRefResolution) {
+            draft
+        } else {
+            draft.withResolvedRefs(
+                unitRef = draft.unitName?.let { resolveRef(repository::findUnitRef, it) },
+                foodRef = draft.foodName?.let { resolveRef(repository::findFoodRef, it) },
+            )
+        }
+    }
+
+    /**
+     * Runs one reference lookup, turning any failure into "not found". A lookup that
+     * fails (or a name that matches nothing) must degrade the line to its note-only
+     * fallback, never fail the save.
+     */
+    private suspend fun resolveRef(
+        lookup: suspend (String) -> IngredientRef?,
+        name: String,
+    ): IngredientRef? = try {
+        lookup(name)
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        null
     }
 
     /** Clears the form for a fresh create; called when a new create is started. */
