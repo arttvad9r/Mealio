@@ -42,10 +42,11 @@ data class RecipeUpdateRequest(
 )
 
 /**
- * One ingredient line. The V1.5 baseline writes free-text lines as Mealie
- * note-only ingredients — `{"note": "500 г куриного филе"}` — leaving [quantity],
- * [unit] and [food] null so they are omitted. The structured fields exist for the
- * server-side ingredient parsing that is part of V1.5 (not the manual baseline).
+ * One ingredient line. A line the server-side parser could not structure is written
+ * note-only — `{"note": "500 г куриного филе"}` — with [quantity], [unit] and [food]
+ * null so they are omitted. A structured line sets [quantity]/[unit]/[food] and
+ * carries the user's line in [originalText], exactly like Mealie's own parser output.
+ * Mealie builds `display` server-side, so it is never sent from Android.
  */
 @Serializable
 data class RecipeIngredientWriteDto(
@@ -53,6 +54,7 @@ data class RecipeIngredientWriteDto(
     val unit: UnitRefDto? = null,
     val food: FoodRefDto? = null,
     val note: String? = null,
+    @SerialName("originalText") val originalText: String? = null,
 )
 
 /** One preparation step. Mealie requires `text`; the order is the array order. */

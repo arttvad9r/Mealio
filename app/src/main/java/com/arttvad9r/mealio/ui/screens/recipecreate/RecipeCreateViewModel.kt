@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.arttvad9r.mealio.data.repository.RecipeWriteSource
 import com.arttvad9r.mealio.domain.model.RecipeDraft
+import com.arttvad9r.mealio.domain.recipe.prepareIngredientDrafts
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -42,6 +43,11 @@ data class RecipeCreateUiState(
  * retry after a failed PATCH repeats the PATCH of that recipe, it never issues a
  * second POST (which would leave a duplicate behind). The double-Save guard
  * ([saving]) is independent, so a double tap cannot create two recipes either.
+ *
+ * Before the first POST the ingredients are sent to Mealie's server-side parser
+ * (best effort, strictly non-fatal) and turned into structured write ingredients,
+ * with a note-only fallback per line. The prepared draft is remembered for the
+ * current save session so a retry never re-parses and never re-POSTs.
  */
 class RecipeCreateViewModel(private val repository: RecipeWriteSource) : ViewModel() {
 
@@ -51,40 +57,74 @@ class RecipeCreateViewModel(private val repository: RecipeWriteSource) : ViewMod
     /** Slug of the recipe created in this session, kept across a failed PATCH. */
     private var createdSlug: String? = null
 
+    /**
+     * The write-ready draft of the current save session, built after parsing. Kept so
+     * a retry after a failed PATCH reuses the parsed ingredients; dropped by any edit.
+     */
+    private var preparedDraft: RecipeDraft? = null
+
     /** True while a save is in flight: the one guard against a duplicate POST. */
     private var saving = false
 
     /** Monotonic row ids; only unique within the current list is required. */
     private var idSeq = 0L
 
-    fun onNameChange(value: String) = _state.update { it.copy(name = value, nameError = false) }
-
-    fun onDescriptionChange(value: String) = _state.update { it.copy(description = value) }
-
-    fun onServingsChange(value: String) = _state.update { it.copy(servings = value, servingsError = false) }
-
-    fun onIngredientChange(id: Long, text: String) = _state.update { state ->
-        state.copy(ingredients = state.ingredients.map { if (it.id == id) it.copy(text = text) else it })
+    fun onNameChange(value: String) {
+        _state.update { it.copy(name = value, nameError = false) }
+        invalidatePrepared()
     }
 
-    fun addIngredient() = _state.update {
-        it.copy(ingredients = it.ingredients + IngredientField(id = ++idSeq, text = ""))
+    fun onDescriptionChange(value: String) {
+        _state.update { it.copy(description = value) }
+        invalidatePrepared()
     }
 
-    fun removeIngredient(id: Long) = _state.update { state ->
-        state.copy(ingredients = state.ingredients.filterNot { it.id == id })
+    fun onServingsChange(value: String) {
+        _state.update { it.copy(servings = value, servingsError = false) }
+        invalidatePrepared()
     }
 
-    fun onStepChange(id: Long, text: String) = _state.update { state ->
-        state.copy(steps = state.steps.map { if (it.id == id) it.copy(text = text) else it })
+    fun onIngredientChange(id: Long, text: String) {
+        _state.update { state ->
+            state.copy(ingredients = state.ingredients.map { if (it.id == id) it.copy(text = text) else it })
+        }
+        invalidatePrepared()
     }
 
-    fun addStep() = _state.update {
-        it.copy(steps = it.steps + StepField(id = ++idSeq, text = ""))
+    fun addIngredient() {
+        _state.update { it.copy(ingredients = it.ingredients + IngredientField(id = ++idSeq, text = "")) }
+        invalidatePrepared()
     }
 
-    fun removeStep(id: Long) = _state.update { state ->
-        state.copy(steps = state.steps.filterNot { it.id == id })
+    fun removeIngredient(id: Long) {
+        _state.update { state -> state.copy(ingredients = state.ingredients.filterNot { it.id == id }) }
+        invalidatePrepared()
+    }
+
+    fun onStepChange(id: Long, text: String) {
+        _state.update { state ->
+            state.copy(steps = state.steps.map { if (it.id == id) it.copy(text = text) else it })
+        }
+        invalidatePrepared()
+    }
+
+    fun addStep() {
+        _state.update { it.copy(steps = it.steps + StepField(id = ++idSeq, text = "")) }
+        invalidatePrepared()
+    }
+
+    fun removeStep(id: Long) {
+        _state.update { state -> state.copy(steps = state.steps.filterNot { it.id == id }) }
+        invalidatePrepared()
+    }
+
+    /**
+     * Any edit to the form drops the prepared draft, so the next save re-parses the
+     * current lines. This keeps "what is on screen" and "what gets written" in sync:
+     * a retry without edits reuses the prepared draft (and skips the POST).
+     */
+    private fun invalidatePrepared() {
+        preparedDraft = null
     }
 
     /**
@@ -117,13 +157,8 @@ class RecipeCreateViewModel(private val repository: RecipeWriteSource) : ViewMod
             return
         }
 
-        val draft = RecipeDraft(
-            name = name,
-            description = current.description.trim().ifEmpty { null },
-            servings = servings,
-            ingredients = current.ingredients.map { it.text.trim() }.filter { it.isNotEmpty() },
-            instructions = current.steps.map { it.text.trim() }.filter { it.isNotEmpty() },
-        )
+        val lines = current.ingredients.map { it.text.trim() }.filter { it.isNotEmpty() }
+        val instructions = current.steps.map { it.text.trim() }.filter { it.isNotEmpty() }
 
         saving = true
         _state.update {
@@ -136,6 +171,11 @@ class RecipeCreateViewModel(private val repository: RecipeWriteSource) : ViewMod
         }
         viewModelScope.launch {
             try {
+                // Parse before the first POST so the PATCH can carry structured
+                // ingredients. Reuses the prepared draft on a retry (no re-parse, no
+                // second POST).
+                val draft = preparedDraft
+                    ?: prepareDraft(name, current.description, servings, lines, instructions)
                 val slug = createdSlug ?: repository.createRecipe(name).also { createdSlug = it }
                 val detail = repository.updateRecipe(slug, draft)
                 // The PATCH response is authoritative: Mealie may have changed the slug.
@@ -155,9 +195,49 @@ class RecipeCreateViewModel(private val repository: RecipeWriteSource) : ViewMod
         }
     }
 
+    /**
+     * Builds the write-ready draft: parses the ingredient lines server-side (best
+     * effort — any failure means "no structure", never an error the user sees) and
+     * converts each line into a structured ingredient or a note-only fallback. The
+     * result is remembered for the rest of the save session.
+     *
+     * The parser is skipped entirely when there are no ingredient lines, matching the
+     * "no ingredients, no parser call" rule.
+     */
+    private suspend fun prepareDraft(
+        name: String,
+        description: String,
+        servings: Double?,
+        lines: List<String>,
+        instructions: List<String>,
+    ): RecipeDraft {
+        val parsed = if (lines.isEmpty()) {
+            emptyList()
+        } else {
+            try {
+                repository.parseIngredients(lines)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                // Strictly best effort: the create flow proceeds note-only.
+                null
+            }
+        }
+        val draft = RecipeDraft(
+            name = name,
+            description = description.trim().ifEmpty { null },
+            servings = servings,
+            ingredients = prepareIngredientDrafts(lines, parsed),
+            instructions = instructions,
+        )
+        preparedDraft = draft
+        return draft
+    }
+
     /** Clears the form for a fresh create; called when a new create is started. */
     fun reset() {
         createdSlug = null
+        preparedDraft = null
         saving = false
         idSeq = 0L
         _state.value = RecipeCreateUiState()

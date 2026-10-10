@@ -3,6 +3,7 @@ package com.arttvad9r.mealio.data.remote.dto
 import com.arttvad9r.mealio.data.mapper.toUpdateRequest
 import com.arttvad9r.mealio.data.remote.MealieApiFactory
 import com.arttvad9r.mealio.domain.model.RecipeDraft
+import com.arttvad9r.mealio.domain.model.RecipeIngredientDraft
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.double
@@ -124,7 +125,10 @@ class RecipeWriteDtoSerializationTest {
             name = "  Борщ  ",
             description = "  Суп  ",
             servings = 4.0,
-            ingredients = listOf("500 г куриного филе", "   ", "соль по вкусу"),
+            ingredients = listOf(
+                RecipeIngredientDraft.fallback("500 г куриного филе"),
+                RecipeIngredientDraft.fallback("соль по вкусу"),
+            ),
             instructions = listOf("  Шаг 1  ", ""),
         ).toUpdateRequest()
 
@@ -141,6 +145,79 @@ class RecipeWriteDtoSerializationTest {
 
         val steps = el["recipeInstructions"]!!.jsonArray.map { it.jsonObject["text"]!!.jsonPrimitive.content }
         assertEquals(listOf("Шаг 1"), steps)
+    }
+
+    @Test
+    fun `structured ingredient draft serializes quantity unit food and originalText`() {
+        val el = obj(
+            RecipeDraft(
+                name = "Тест NLP",
+                ingredients = listOf(
+                    RecipeIngredientDraft(
+                        originalText = "500 г куриного филе",
+                        quantity = 500.0,
+                        unitName = "грамм",
+                        foodName = "куриное филе",
+                    ),
+                ),
+            ).toUpdateRequest(),
+        )
+
+        val ingredient = el["recipeIngredient"]!!.jsonArray.single().jsonObject
+        assertEquals(setOf("quantity", "unit", "food", "originalText"), ingredient.keys)
+        assertEquals(500.0, ingredient["quantity"]!!.jsonPrimitive.double, 0.0)
+        assertEquals(setOf("name"), ingredient["unit"]!!.jsonObject.keys)
+        assertEquals("грамм", ingredient["unit"]!!.jsonObject["name"]!!.jsonPrimitive.content)
+        assertEquals(setOf("name"), ingredient["food"]!!.jsonObject.keys)
+        assertEquals("куриное филе", ingredient["food"]!!.jsonObject["name"]!!.jsonPrimitive.content)
+        assertEquals("500 г куриного филе", ingredient["originalText"]!!.jsonPrimitive.content)
+        // Mealie builds `display` from the parts above, so it is never sent
+        assertFalse("display must be built by Mealie", "display" in ingredient)
+        forbidden.forEach { assertFalse("PATCH must not send $it", it in el) }
+    }
+
+    @Test
+    fun `mixed ingredients keep one structured line and one note-only line in order`() {
+        val el = obj(
+            RecipeDraft(
+                name = "Тест NLP",
+                ingredients = listOf(
+                    RecipeIngredientDraft(
+                        originalText = "2 яйца",
+                        quantity = 2.0,
+                        foodName = "яйцо",
+                    ),
+                    RecipeIngredientDraft.fallback("соль по вкусу"),
+                ),
+            ).toUpdateRequest(),
+        )
+
+        val arr = el["recipeIngredient"]!!.jsonArray.map { it.jsonObject }
+        assertEquals(2, arr.size)
+        assertEquals(setOf("quantity", "food", "originalText"), arr[0].keys)
+        assertEquals(setOf("note"), arr[1].keys)
+        assertEquals("соль по вкусу", arr[1]["note"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `a draft with no structure after normalisation degrades to note-only`() {
+        val el = obj(
+            RecipeDraft(
+                name = "X",
+                ingredients = listOf(
+                    RecipeIngredientDraft(
+                        originalText = "500 г куриного филе",
+                        quantity = 0.0,
+                        unitName = "  ",
+                        foodName = "",
+                    ),
+                ),
+            ).toUpdateRequest(),
+        )
+
+        val ingredient = el["recipeIngredient"]!!.jsonArray.single().jsonObject
+        assertEquals(setOf("note"), ingredient.keys)
+        assertEquals("500 г куриного филе", ingredient["note"]!!.jsonPrimitive.content)
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.arttvad9r.mealio.data.remote.ErrorKind
 import com.arttvad9r.mealio.data.remote.MealioException
 import com.arttvad9r.mealio.data.repository.RecipeWriteSource
 import com.arttvad9r.mealio.domain.model.Nutrition
+import com.arttvad9r.mealio.domain.model.ParsedIngredient
 import com.arttvad9r.mealio.domain.model.RecipeDetail
 import com.arttvad9r.mealio.domain.model.RecipeDraft
 import kotlinx.coroutines.CompletableDeferred
@@ -24,9 +25,10 @@ import org.junit.Test
 
 /**
  * The manual-create state machine: validation and trimming before any request, the
- * two-request create → PATCH flow, and the two guards that keep it from creating
- * duplicates — the double-Save guard and the remembered slug that turns a retry
- * after a failed PATCH back into a PATCH rather than a second POST.
+ * best-effort ingredient parsing that feeds the write, the two-request
+ * create → PATCH flow, and the guards that keep it from creating duplicates — the
+ * double-Save guard and the remembered slug that turns a retry after a failed PATCH
+ * back into a PATCH rather than a second POST.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class RecipeCreateViewModelTest {
@@ -57,21 +59,52 @@ class RecipeCreateViewModelTest {
         description = null,
     )
 
-    /** A [RecipeWriteSource] that records its calls and can fail or block on demand. */
+    private fun parsed(
+        input: String,
+        quantity: Double? = null,
+        unitName: String? = null,
+        foodName: String? = null,
+        note: String? = null,
+    ) = ParsedIngredient(
+        input = input,
+        quantity = quantity,
+        unitName = unitName,
+        foodName = foodName,
+        note = note,
+        display = null,
+    )
+
+    /**
+     * A [RecipeWriteSource] that records its calls (in order) and can fail, block or
+     * parse on demand. [parser] defaults to "no structure", which is the same
+     * note-only behaviour the manual baseline had.
+     */
     private inner class FakeWriteSource(
         private val createSlug: String = "slug-a",
         private val patchSlug: String? = null,
         private var failPatchOnce: Boolean = false,
         private val createGate: CompletableDeferred<Unit>? = null,
+        private val parser: (suspend (List<String>) -> List<ParsedIngredient>)? = null,
     ) : RecipeWriteSource {
         var createCalls = 0
         var updateCalls = 0
+        var parseCalls = 0
+        val calls = mutableListOf<String>()
         val createNames = mutableListOf<String>()
         val updateSlugs = mutableListOf<String>()
         val drafts = mutableListOf<RecipeDraft>()
+        val parsedLines = mutableListOf<List<String>>()
+
+        override suspend fun parseIngredients(lines: List<String>): List<ParsedIngredient> {
+            parseCalls++
+            calls += "parse"
+            parsedLines += lines
+            return parser?.invoke(lines) ?: emptyList()
+        }
 
         override suspend fun createRecipe(name: String): String {
             createCalls++
+            calls += "create"
             createNames += name
             createGate?.await()
             return createSlug
@@ -79,6 +112,7 @@ class RecipeCreateViewModelTest {
 
         override suspend fun updateRecipe(slug: String, draft: RecipeDraft): RecipeDetail {
             updateCalls++
+            calls += "update"
             updateSlugs += slug
             drafts += draft
             if (failPatchOnce) {
@@ -90,6 +124,16 @@ class RecipeCreateViewModelTest {
     }
 
     private fun vm(source: FakeWriteSource) = RecipeCreateViewModel(source)
+
+    /** Fills three ingredient rows with the lines the smoke test uses. */
+    private fun RecipeCreateViewModel.fillSmokeIngredients() {
+        addIngredient()
+        addIngredient()
+        val ids = state.value.ingredients.map { it.id }
+        onIngredientChange(ids[0], "500 г куриного филе")
+        onIngredientChange(ids[1], "2 яйца")
+        onIngredientChange(ids[2], "соль по вкусу")
+    }
 
     // --- validation -------------------------------------------------------------
 
@@ -162,8 +206,19 @@ class RecipeCreateViewModelTest {
         assertEquals("Ужин", draft.name)
         assertNull("blank description must stay null", draft.description)
         assertEquals(4.0, draft.servings!!, 0.0)
-        assertEquals(listOf("500 г куриного филе", "2 яйца"), draft.ingredients)
+        assertEquals(
+            listOf("500 г куриного филе", "2 яйца"),
+            draft.ingredients.map { it.originalText },
+        )
+        // the fake parser returns nothing usable, so both lines stay note-only
+        assertEquals(
+            listOf("500 г куриного филе", "2 яйца"),
+            draft.ingredients.map { it.note },
+        )
+        assertEquals(0, draft.ingredients.count { it.isStructured })
         assertEquals(listOf("Нарезать"), draft.instructions)
+        // blank lines never reach the parser
+        assertEquals(listOf(listOf("500 г куриного филе", "2 яйца")), src.parsedLines)
     }
 
     @Test
@@ -185,7 +240,7 @@ class RecipeCreateViewModelTest {
         advanceUntilIdle()
 
         val draft = src.drafts.single()
-        assertEquals(listOf("a", "b", "c"), draft.ingredients)
+        assertEquals(listOf("a", "b", "c"), draft.ingredients.map { it.originalText })
         assertEquals(listOf("s1", "s2"), draft.instructions)
     }
 
@@ -214,6 +269,120 @@ class RecipeCreateViewModelTest {
         val stepIds = vm.state.value.steps.map { it.id }
         vm.removeStep(stepIds[1])
         assertEquals(listOf(stepIds[0]), vm.state.value.steps.map { it.id })
+    }
+
+    // --- ingredient parsing -----------------------------------------------------
+
+    @Test
+    fun `parser runs before the first post`() = runTest {
+        val src = FakeWriteSource()
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.fillSmokeIngredients()
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(listOf("parse", "create", "update"), src.calls)
+        assertEquals(1, src.parseCalls)
+    }
+
+    @Test
+    fun `structured parse result reaches the patch draft`() = runTest {
+        val src = FakeWriteSource(parser = { lines ->
+            lines.mapIndexed { index, line ->
+                if (index == 0) parsed(line, quantity = 500.0, unitName = "грамм", foodName = "куриное филе")
+                else parsed(line)
+            }
+        })
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.fillSmokeIngredients()
+        vm.save()
+        advanceUntilIdle()
+
+        val ingredients = src.drafts.single().ingredients
+        assertEquals(3, ingredients.size)
+        assertEquals(
+            listOf("500 г куриного филе", "2 яйца", "соль по вкусу"),
+            ingredients.map { it.originalText },
+        )
+        assertEquals(500.0, ingredients[0].quantity!!, 0.0)
+        assertEquals("грамм", ingredients[0].unitName)
+        assertEquals("куриное филе", ingredients[0].foodName)
+        assertTrue(ingredients[0].isStructured)
+        // the other two lines had no usable structure: safe note-only fallback
+        assertEquals("2 яйца", ingredients[1].note)
+        assertEquals("соль по вкусу", ingredients[2].note)
+        assertFalse(ingredients[1].isStructured)
+        assertFalse(ingredients[2].isStructured)
+    }
+
+    @Test
+    fun `parser failure still creates and patches note-only`() = runTest {
+        val src = FakeWriteSource(parser = { throw MealioException(ErrorKind.UNREACHABLE, "parser down") })
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.fillSmokeIngredients()
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(RecipeCreatePhase.SUCCESS, vm.state.value.phase)
+        assertEquals(1, src.createCalls)
+        assertEquals(1, src.updateCalls)
+        val ingredients = src.drafts.single().ingredients
+        assertEquals(
+            listOf("500 г куриного филе", "2 яйца", "соль по вкусу"),
+            ingredients.map { it.note },
+        )
+        assertEquals(0, ingredients.count { it.isStructured })
+    }
+
+    @Test
+    fun `a parser exception is never a fatal create error`() = runTest {
+        val src = FakeWriteSource(parser = { throw IllegalStateException("malformed response") })
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.fillSmokeIngredients()
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(RecipeCreatePhase.SUCCESS, vm.state.value.phase)
+        assertNull(vm.state.value.error)
+    }
+
+    @Test
+    fun `mixed parser result keeps structured lines and falls back the rest`() = runTest {
+        val src = FakeWriteSource(parser = { lines ->
+            listOf(
+                parsed(lines[0], quantity = 500.0, unitName = "грамм", foodName = "куриное филе"),
+                parsed(lines[1], quantity = 2.0, foodName = "яйцо"),
+                // "соль по вкусу": the parser echoes the whole line as the food name
+                parsed(lines[2], quantity = 0.0, foodName = "соль по вкусу"),
+            )
+        })
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.fillSmokeIngredients()
+        vm.save()
+        advanceUntilIdle()
+
+        val ingredients = src.drafts.single().ingredients
+        assertTrue(ingredients[0].isStructured)
+        assertTrue(ingredients[1].isStructured)
+        assertFalse("a food equal to the whole line is not structure", ingredients[2].isStructured)
+        assertEquals("соль по вкусу", ingredients[2].note)
+    }
+
+    @Test
+    fun `no ingredient lines skips the parser`() = runTest {
+        val src = FakeWriteSource()
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(0, src.parseCalls)
+        assertEquals(listOf("create", "update"), src.calls)
     }
 
     // --- the create → PATCH flow -------------------------------------------------
@@ -249,6 +418,7 @@ class RecipeCreateViewModelTest {
         val src = FakeWriteSource(failPatchOnce = true)
         val vm = vm(src)
         vm.onNameChange("Ужин")
+        vm.fillSmokeIngredients()
 
         vm.save()
         advanceUntilIdle()
@@ -259,8 +429,54 @@ class RecipeCreateViewModelTest {
         vm.save()
         advanceUntilIdle()
         assertEquals(1, src.createCalls) // no duplicate POST
+        assertEquals(1, src.parseCalls) // prepared draft reused, no re-parse
         assertEquals(2, src.updateCalls)
         assertEquals(listOf("slug-a", "slug-a"), src.updateSlugs)
+        assertEquals(RecipeCreatePhase.SUCCESS, vm.state.value.phase)
+    }
+
+    @Test
+    fun `retry after a failed patch reuses the prepared draft`() = runTest {
+        val src = FakeWriteSource(
+            failPatchOnce = true,
+            parser = { lines ->
+                listOf(parsed(lines[0], quantity = 500.0, unitName = "грамм", foodName = "куриное филе"))
+            },
+        )
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.onIngredientChange(vm.state.value.ingredients[0].id, "500 г куриного филе")
+
+        vm.save()
+        advanceUntilIdle()
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(2, src.drafts.size)
+        assertEquals(src.drafts[0].ingredients, src.drafts[1].ingredients)
+        assertTrue(src.drafts[1].ingredients[0].isStructured)
+    }
+
+    @Test
+    fun `editing the form after a failed patch re-parses but never re-posts`() = runTest {
+        val src = FakeWriteSource(failPatchOnce = true)
+        val vm = vm(src)
+        vm.onNameChange("Ужин")
+        vm.onIngredientChange(vm.state.value.ingredients[0].id, "2 яйца")
+
+        vm.save()
+        advanceUntilIdle()
+        assertEquals(RecipeCreatePhase.ERROR, vm.state.value.phase)
+
+        // the user edits the lines before retrying: the prepared draft is stale
+        vm.onIngredientChange(vm.state.value.ingredients[0].id, "3 яйца")
+        vm.save()
+        advanceUntilIdle()
+
+        assertEquals(2, src.parseCalls) // re-parsed after the edit
+        assertEquals(1, src.createCalls) // but the recipe already exists
+        assertEquals(2, src.updateCalls)
+        assertEquals("3 яйца", src.drafts[1].ingredients.single().originalText)
         assertEquals(RecipeCreatePhase.SUCCESS, vm.state.value.phase)
     }
 
@@ -270,12 +486,14 @@ class RecipeCreateViewModelTest {
         val src = FakeWriteSource(createGate = gate)
         val vm = vm(src)
         vm.onNameChange("Ужин")
+        vm.onIngredientChange(vm.state.value.ingredients[0].id, "2 яйца")
 
         vm.save() // suspends inside createRecipe, saving = true
         vm.save() // ignored
         gate.complete(Unit)
         advanceUntilIdle()
 
+        assertEquals(1, src.parseCalls)
         assertEquals(1, src.createCalls)
         assertEquals(1, src.updateCalls)
         assertEquals(RecipeCreatePhase.SUCCESS, vm.state.value.phase)

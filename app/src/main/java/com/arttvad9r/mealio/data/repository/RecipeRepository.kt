@@ -37,6 +37,12 @@ interface RecipeSource {
 interface RecipeWriteSource {
     suspend fun createRecipe(name: String): String
     suspend fun updateRecipe(slug: String, draft: RecipeDraft): RecipeDetail
+
+    /**
+     * Best-effort server-side ingredient parsing. The caller treats any failure as
+     * "no structure available" and keeps the user's lines as note-only ingredients.
+     */
+    suspend fun parseIngredients(lines: List<String>): List<ParsedIngredient>
 }
 
 class RecipeRepository(private val connection: ConnectionRepository) :
@@ -173,7 +179,7 @@ class RecipeRepository(private val connection: ConnectionRepository) :
     }
 
     /** Parses free-text ingredient lines server-side. */
-    suspend fun parseIngredients(lines: List<String>): List<ParsedIngredient> =
+    override suspend fun parseIngredients(lines: List<String>): List<ParsedIngredient> =
         withContext(Dispatchers.IO) {
             val api = apiOrThrow()
             try {

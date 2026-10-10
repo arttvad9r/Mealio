@@ -15,6 +15,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.arttvad9r.mealio.R
 import com.arttvad9r.mealio.data.repository.RecipeWriteSource
+import com.arttvad9r.mealio.domain.model.ParsedIngredient
 import com.arttvad9r.mealio.domain.model.RecipeDetail
 import com.arttvad9r.mealio.domain.model.RecipeDraft
 import com.arttvad9r.mealio.ui.screens.recipes.RecipesScreen
@@ -46,6 +47,7 @@ class RecipeCreateScreenTest {
         override suspend fun createRecipe(name: String): String = "slug"
         override suspend fun updateRecipe(slug: String, draft: RecipeDraft): RecipeDetail =
             throw UnsupportedOperationException()
+        override suspend fun parseIngredients(lines: List<String>): List<ParsedIngredient> = emptyList()
     }
 
     private fun newViewModel() = RecipeCreateViewModel(NoopWriteSource())
